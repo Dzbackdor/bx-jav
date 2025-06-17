@@ -1,0 +1,388 @@
+// UI Control Panel Helper
+(function() {
+    'use strict';
+    
+    // Create control panel
+    window.createControlPanel = function() {
+        const currentIndex = window.getCurrentUrlIndex();
+        const completedUrls = window.getCompletedUrls();
+        const currentUrl = window.location.href;
+        const isTarget = window.isTargetUrl();
+        const isCompleted = window.hasAlreadyCommented();
+
+        const panel = document.createElement('div');
+        panel.id = 'backlinkBotPanel';
+        panel.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10000;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            min-width: 280px;
+            max-width: 350px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        `;
+
+        let statusColor = '#666';
+        let statusText = 'Not Target URL';
+        let statusIcon = '⚪';
+
+        if (currentUrl.includes('wp-comments-post.php')) {
+            statusColor = '#f44336';
+            statusText = 'ERROR: wp-comments-post.php';
+            statusIcon = '❌';
+        } else if (isTarget && isCompleted) {
+            statusColor = '#4CAF50';
+            statusText = 'Completed';
+            statusIcon = '✅';
+        } else if (isTarget && window.submitAttempted) {
+            statusColor = '#FF9800';
+            statusText = 'Processing...';
+            statusIcon = '⏳';
+        } else if (isTarget) {
+            statusColor = '#2196F3';
+            statusText = 'Ready to Comment';
+            statusIcon = '🎯';
+        }
+
+        // Checkbox configuration status
+        const checkboxStatus = `
+            <div style="margin-bottom: 8px; font-size: 11px; color: #ccc; border-top: 1px solid #444; padding-top: 8px;">
+                📋 Checkbox Settings:
+            </div>
+            <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
+                ${window.commentConfig.handleCheckboxes ? '✅' : '❌'} Handle Checkboxes
+            </div>
+            <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
+                ${window.commentConfig.autoCheckConsent ? '✅' : '❌'} Auto Consent
+            </div>
+            <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
+                ${window.commentConfig.autoCheckPrivacy ? '✅' : '❌'} Auto Privacy
+            </div>
+            <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
+                ${window.commentConfig.autoCheckTerms ? '✅' : '❌'} Auto Terms
+            </div>
+            <div style="font-size: 10px; color: #ccc; margin-bottom: 8px;">
+                ${window.commentConfig.autoCheckNewsletter ? '✅' : '❌'} Auto Newsletter
+            </div>
+        `;
+
+        panel.innerHTML = `
+            <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">
+                🤖 Auto Backlink Bot v4.0
+            </div>
+
+            <div style="margin-bottom: 8px;">
+                <strong>Status:</strong>
+                <span style="color: ${statusColor};">${statusIcon} ${statusText}</span>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+                <strong>Progress:</strong> ${completedUrls.length}/${window.targetUrls.length} URLs
+            </div>
+
+            <div style="margin-bottom: 8px;">
+                <strong>Current:</strong> ${currentIndex + 1}/${window.targetUrls.length}
+            </div>
+
+            ${currentUrl.includes('wp-comments-post.php') ? `
+                <div style="margin-bottom: 8px; color: #f44336; font-weight: bold;">
+                    ⚠️ ERROR DETECTED
+                </div>
+                <div style="margin-bottom: 8px; font-size: 11px; color: #ffcdd2;">
+                    wp-comments-post.php indicates form validation error
+                </div>
+            ` : ''}
+
+            <div style="margin-bottom: 10px; font-size: 11px; color: #ccc;">
+                ${isTarget ? 'Target URL' : 'Non-target URL'}
+            </div>
+
+            ${checkboxStatus}
+
+            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <button id="resetBtn" style="background: #f44336; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                    Reset
+                </button>
+                <button id="retryBtn" style="background: #FF9800; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                    Retry
+                </button>
+                <button id="skipBtn" style="background: #9E9E9E; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                    Skip
+                </button>
+                <button id="debugBtn" style="background: #673AB7; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                    Debug
+                </button>
+                <button id="checkboxBtn" style="background: #009688; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                    Test CB
+                </button>
+            </div>
+        `;
+
+        document.body.appendChild(panel);
+
+        // Event listeners
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm('Reset all progress?')) {
+                window.resetAllProgress();
+            }
+        });
+
+        document.getElementById('retryBtn').addEventListener('click', () => {
+            window.submitAttempted = false;
+            window.isWaitingForUrlChange = false;
+            window.retryCount = 0;
+
+            if (window.urlChangeTimer) {
+                clearTimeout(window.urlChangeTimer);
+                window.urlChangeTimer = null;
+            }
+
+            if (typeof window.removeWaitingMessage === 'function') {
+                window.removeWaitingMessage();
+            }
+            
+            console.log('🔄 Manual retry initiated');
+
+            if (currentUrl.includes('wp-comments-post.php')) {
+                const currentIndex = window.getCurrentUrlIndex();
+                if (currentIndex < window.targetUrls.length) {
+                    const originalTargetUrl = window.targetUrls[currentIndex];
+                    console.log('🔙 Returning to original URL from wp-comments-post.php');
+                    window.location.href = originalTargetUrl;
+                    return;
+                }
+            }
+
+            window.updateControlPanel();
+            setTimeout(() => {
+                window.proceedWithComment();
+            }, 1000);
+        });
+
+        document.getElementById('skipBtn').addEventListener('click', () => {
+            if (confirm('Skip current URL?')) {
+                const currentUrl = window.location.href.split('#')[0];
+                window.markUrlAsCompleted(currentUrl, 'Manually skipped');
+                window.navigateToNextUrl();
+            }
+        });
+
+        document.getElementById('debugBtn').addEventListener('click', () => {
+            window.showDebugModal();
+        });
+
+        document.getElementById('checkboxBtn').addEventListener('click', () => {
+            window.testCheckboxHandling();
+        });
+    };
+
+    // Update control panel
+    window.updateControlPanel = function() {
+        const existingPanel = document.getElementById('backlinkBotPanel');
+        if (existingPanel) {
+            existingPanel.remove();
+        }
+        window.createControlPanel();
+    };
+
+    // Reset all progress
+    window.resetAllProgress = function() {
+        GM_deleteValue('currentUrlIndex');
+        GM_deleteValue('completedUrls');
+        GM_deleteValue('retryCount');
+
+        window.submitAttempted = false;
+        window.isWaitingForUrlChange = false;
+        window.retryCount = 0;
+
+        if (window.urlChangeTimer) {
+            clearTimeout(window.urlChangeTimer);
+            window.urlChangeTimer = null;
+        }
+
+        console.log('🔄 All progress reset');
+        window.updateControlPanel();
+
+        if (window.targetUrls.length > 0) {
+            setTimeout(() => {
+                window.location.href = window.targetUrls[0];
+            }, 1000);
+        }
+    };
+
+    // Test checkbox handling
+    window.testCheckboxHandling = function() {
+        console.log('🧪 Testing checkbox handling...');
+
+        const forms = document.querySelectorAll('form');
+        let totalCheckboxes = 0;
+        let handledCheckboxes = 0;
+
+        forms.forEach((form, index) => {
+            console.log(`📝 Testing form ${index + 1}:`);
+            const checkboxes = window.findCheckboxes(form);
+
+            for (let category in checkboxes) {
+                if (checkboxes[category].length > 0) {
+                    totalCheckboxes += checkboxes[category].length;
+                    console.log(`  ${category}: ${checkboxes[category].length} checkboxes`);
+                }
+            }
+
+            if (window.commentConfig.handleCheckboxes) {
+                const handled = window.handleCheckboxes(form);
+                if (handled) handledCheckboxes++;
+            }
+        });
+
+        const testResult = `
+📋 Checkbox Test Results:
+- Total forms: ${forms.length}
+- Total checkboxes: ${totalCheckboxes}
+- Forms with checkboxes handled: ${handledCheckboxes}
+- Checkbox handling enabled: ${window.commentConfig.handleCheckboxes}
+
+Check console for detailed results.
+        `;
+
+        alert(testResult);
+        console.log('📋 Checkbox test completed');
+    };
+
+    // Show debug modal
+    window.showDebugModal = function() {
+        const completedUrls = window.getCompletedUrls();
+        const currentIndex = window.getCurrentUrlIndex();
+        const currentUrl = window.location.href;
+
+        const modal = document.createElement('div');
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10001;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 80%;
+            max-height: 80%;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        `;
+
+        let debugInfo = '';
+        try {
+            const successDetected = window.detectCommentSuccess();
+            const errorDetected = window.detectCommentError();
+            const urlChanged = window.hasUrlChanged(window.originalUrl, currentUrl);
+
+            debugInfo = `
+🔍 AUTO BACKLINK BOT DEBUG v4.0
+================================
+
+📊 Current Status:
+- Current URL: ${currentUrl}
+- Original URL: ${window.originalUrl}
+- Current Index: ${currentIndex}
+- Total Target URLs: ${window.targetUrls.length}
+- Completed Count: ${completedUrls.length}
+- Is Target URL: ${window.isTargetUrl()}
+- Already Commented: ${window.hasAlreadyCommented()}
+
+🔄 Submit Status:
+- Submit Attempted: ${window.submitAttempted}
+- Waiting for URL Change: ${window.isWaitingForUrlChange}
+- URL Change Timer Active: ${window.urlChangeTimer !== null}
+
+🎯 URL Analysis:
+- Has Comment Hash: ${currentUrl.includes('#comment-')}
+- Has wp-comments-post.php: ${currentUrl.includes('wp-comments-post.php')}
+- URL Changed from Original: ${urlChanged}
+
+✅ Success Detection:
+- Success Detected: ${successDetected.success}
+- Success Reason: ${successDetected.reason || 'none'}
+
+❌ Error Detection:
+- Error Detected: ${errorDetected.error}
+- Error Reason: ${errorDetected.reason || 'none'}
+
+📋 Checkbox Configuration:
+- Handle Checkboxes: ${window.commentConfig.handleCheckboxes}
+- Auto Check Consent: ${window.commentConfig.autoCheckConsent}
+- Auto Check Privacy: ${window.commentConfig.autoCheckPrivacy}
+- Auto Check Terms: ${window.commentConfig.autoCheckTerms}
+- Auto Check Newsletter: ${window.commentConfig.autoCheckNewsletter}
+
+🎯 Target URLs:
+${window.targetUrls.map((url, index) => {
+    const isCompleted = completedUrls.includes(url.split('#')[0].split('?')[0]);
+    const isCurrent = index === currentIndex;
+    const status = isCompleted ? '✅' : (isCurrent ? '👉' : '⏳');
+    return `${status} ${index + 1}. ${url}`;
+}).join('\n')}
+
+✅ Completed URLs:
+${completedUrls.length > 0 ? completedUrls.map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
+            `;
+        } catch (e) {
+            debugInfo = `Error generating debug info: ${e.message}`;
+        }
+
+        content.innerHTML = `
+            <h3>🔍 Debug Information</h3>
+            <pre style="white-space: pre-wrap; word-wrap: break-word;">${debugInfo}</pre>
+            <div style="margin-top: 20px; text-align: center;">
+                <button id="copyDebugBtn" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">
+                    Copy Debug Info
+                </button>
+                <button id="closeDebugBtn" style="background: #f44336; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">
+                    Close
+                </button>
+            </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // Event listeners
+        document.getElementById('copyDebugBtn').addEventListener('click', () => {
+            navigator.clipboard.writeText(debugInfo).then(() => {
+                alert('Debug info copied to clipboard!');
+            }).catch(() => {
+                alert('Failed to copy debug info');
+            });
+        });
+
+        document.getElementById('closeDebugBtn').addEventListener('click', () => {
+            modal.remove();
+        });
+
+        // Close on background click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    };
+    
+    console.log('✅ UI Control Panel helper loaded');
+    
+})();
