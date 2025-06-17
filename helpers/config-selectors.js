@@ -1,14 +1,16 @@
-// Config dan Selectors Helper
+// Configuration and Selectors Helper
 (function() {
     'use strict';
     
     // WordPress form selectors
     window.wpSelectors = [
-        "#commentform",
-        "#respond", 
-        ".comment-form",
-        "form[action*='comment']",
-        "form[action*='wp-comments-post']"
+        '#commentform',
+        'form[action*="wp-comments-post"]',
+        '.comment-form',
+        '.wp-comment-form',
+        'form#comment-form',
+        'form.comment-form',
+        '#respond form'
     ];
     
     // Submit button selectors
@@ -16,12 +18,16 @@
         'input[type="submit"]',
         'button[type="submit"]',
         'input[name="submit"]',
+        'button[name="submit"]',
+        '.submit-button',
         '#submit',
-        '.submit',
+        'button:contains("Submit")',
+        'button:contains("Post Comment")',
+        'input[value*="Submit"]',
+        'input[value*="Post"]',
+        '.tipi-button',
         'button.submit',
         'input.submit',
-        '.tipi-button',
-        'button[name="submit"]',
         '[value="Submit"]',
         '[value="Post Comment"]',
         '[value="Send"]'
@@ -36,7 +42,7 @@
             'input[id*="comment-cookies"]',
             'input[name*="comment-cookies"]'
         ],
-        
+
         // Privacy policy checkboxes
         privacy: [
             'input[name*="privacy"]',
@@ -46,7 +52,7 @@
             'input[name*="gdpr"]',
             'input[id*="gdpr"]'
         ],
-        
+
         // Terms and conditions
         terms: [
             'input[name*="terms"]',
@@ -56,8 +62,8 @@
             'input[name*="agree"]',
             'input[id*="agree"]'
         ],
-        
-        // Newsletter subscriptions
+
+        // Newsletter subscriptions (usually we don't want to auto-check these)
         newsletter: [
             'input[name*="newsletter"]',
             'input[id*="newsletter"]',
@@ -66,7 +72,7 @@
             'input[name*="marketing"]',
             'input[id*="marketing"]'
         ],
-        
+
         // General consent checkboxes
         consent: [
             'input[name*="consent"]',
@@ -75,5 +81,7 @@
             'input[id*="accept"]'
         ]
     };
+    
+    console.log('✅ Config & Selectors helper loaded');
     
 })();
