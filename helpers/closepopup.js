@@ -18,7 +18,13 @@
             '.gdpr-notice button[aria-label*="close"]',
             '[data-dismiss="modal"]',
             '.modal-close',
-            '.popup-close'
+            '.popup-close',
+            // Selector untuk popup cookie consent umum
+            '#cookie-notice .cookie-close',
+            '.cookie-consent-close',
+            '.gdpr-close',
+            'button[onclick*="cookie"]',
+            'button[onclick*="consent"]'
         ];
         
         let popupClosed = false;
@@ -33,19 +39,23 @@
                 closeButton.style.outlineOffset = '2px';
                 
                 // Click button
-                closeButton.click();
-                console.log('✅ Popup closed successfully');
-                popupClosed = true;
-                
-                // Remove highlight after delay
-                setTimeout(() => {
-                    if (closeButton.style) {
-                        closeButton.style.outline = '';
-                        closeButton.style.outlineOffset = '';
-                    }
-                }, 1000);
-                
-                break; // Stop after first popup closed
+                try {
+                    closeButton.click();
+                    console.log('✅ Popup closed successfully');
+                    popupClosed = true;
+                    
+                    // Remove highlight after delay
+                    setTimeout(() => {
+                        if (closeButton.style) {
+                            closeButton.style.outline = '';
+                            closeButton.style.outlineOffset = '';
+                        }
+                    }, 1000);
+                    
+                    break; // Stop after first popup closed
+                } catch (error) {
+                    console.log('⚠️ Error clicking popup button:', error);
+                }
             }
         }
         
@@ -70,7 +80,12 @@
             '.gdpr-notice button[aria-label*="close"]',
             '[data-dismiss="modal"]',
             '.modal-close',
-            '.popup-close'
+            '.popup-close',
+            '#cookie-notice .cookie-close',
+            '.cookie-consent-close',
+            '.gdpr-close',
+            'button[onclick*="cookie"]',
+            'button[onclick*="consent"]'
         ];
         
         let foundPopups = [];
@@ -84,7 +99,8 @@
                         element: element,
                         text: element.textContent.trim(),
                         ariaLabel: element.getAttribute('aria-label'),
-                        className: element.className
+                        className: element.className,
+                        id: element.id
                     });
                     
                     // Highlight found popup buttons
