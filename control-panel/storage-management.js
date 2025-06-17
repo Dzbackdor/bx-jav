@@ -79,6 +79,27 @@
         }
     };
 
+    // MISSING FUNCTION - ADDED HERE
+    window.resetRetryCount = function(url) {
+        try {
+            const retries = GM_getValue('retryCount', {});
+            const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
+            
+            if (retries[cleanUrl] !== undefined) {
+                delete retries[cleanUrl];
+                GM_setValue('retryCount', retries);
+                console.log(`🔄 Reset retry count for: ${cleanUrl}`);
+                return true;
+            } else {
+                console.log(`ℹ️ No retry count found for: ${cleanUrl}`);
+                return true;
+            }
+        } catch (e) {
+            console.error('Error resetting retry count:', e);
+            return false;
+        }
+    };
+
     // Enhanced markUrlAsCompleted with hash preservation
     window.markUrlAsCompleted = function(originalUrl, finalUrl, reason = 'Comment submitted') {
         let urlToStore = originalUrl;
@@ -126,12 +147,14 @@
             console.log(`✅ Marked as completed: ${urlToStore} (${reason})`);
             
             // Log detail untuk debugging
-            window.logMessage('success', 'URL marked as completed', {
-                originalUrl: originalUrl,
-                finalUrl: finalUrl,
-                storedUrl: urlToStore,
-                reason: reason
-            });
+            if (typeof window.logMessage === 'function') {
+                window.logMessage('success', 'URL marked as completed', {
+                    originalUrl: originalUrl,
+                    finalUrl: finalUrl,
+                    storedUrl: urlToStore,
+                    reason: reason
+                });
+            }
         } else {
             console.log(`URL already completed: ${cleanOriginal}`);
         }
@@ -310,7 +333,7 @@
         try {
             const completedUrls = window.getCompletedUrls();
             const retryData = GM_getValue('retryCount', {});
-            const sessionHistory = GM_getValue('sessionHistory', []);
+                        const sessionHistory = GM_getValue('sessionHistory', []);
             const currentSession = window.getCurrentSession();
             
             const totalRetries = Object.values(retryData).reduce((sum, count) => sum + count, 0);
@@ -523,6 +546,67 @@
             return false;
         }
     };
+
+    // ADDITIONAL FUNCTIONS - Added for better retry management
+    window.resetSingleRetryCount = function(url) {
+        return window.resetRetryCount(url);
+    };
+
+    window.resetRetryCountsForUrls = function(urls) {
+        try {
+            if (!Array.isArray(urls)) {
+                console.error('resetRetryCountsForUrls: urls must be an array');
+                return false;
+            }
+
+            const retries = GM_getValue('retryCount', {});
+            let resetCount = 0;
+
+            urls.forEach(url => {
+                const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
+                if (retries[cleanUrl] !== undefined) {
+                    delete retries[cleanUrl];
+                    resetCount++;
+                }
+            });
+
+            GM_setValue('retryCount', retries);
+            console.log(`🔄 Reset retry counts for ${resetCount} URLs`);
+            return true;
+        } catch (e) {
+            console.error('Error resetting retry counts for URLs:', e);
+            return false;
+        }
+    };
+
+    // ADDITIONAL: Get all retry counts for debugging
+    window.getAllRetryCounts = function() {
+        try {
+            const retryCount = GM_getValue('retryCount', {});
+            console.log('📊 All retry counts:', retryCount);
+            return retryCount;
+        } catch (e) {
+            console.error('Error getting all retry counts:', e);
+            return {};
+        }
+    };
+
+    // ADDITIONAL: Force reset specific URL retry
+    window.forceResetRetryCount = function(url) {
+        try {
+            const retries = GM_getValue('retryCount', {});
+            const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
+            
+            // Force delete regardless of existence
+            delete retries[cleanUrl];
+            GM_setValue('retryCount', retries);
+            console.log(`🔄 Force reset retry count for: ${cleanUrl}`);
+            return true;
+        } catch (e) {
+            console.error('Error force resetting retry count:', e);
+            return false;
+        }
+    };
     
     // New: Backup and restore
     window.createBackup = function() {
@@ -682,7 +766,7 @@
         } catch (e) {
             console.error('Error during storage health check:', e);
             return {
-                status: 'error',
+                                status: 'error',
                 issues: ['Health check failed: ' + e.message],
                 recommendations: ['Check console for errors'],
                 storageSize: 0,
@@ -708,7 +792,10 @@
             
             window.targetUrls.forEach((url, index) => {
                 const cleanUrl = window.cleanUrl(url);
-                const isCompleted = completedUrls.includes(cleanUrl);
+                const isCompleted = completedUrls.some(completedUrl => {
+                    const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
+                    return cleanCompleted === cleanUrl;
+                });
                 const retries = retryCount[cleanUrl] || 0;
                 const details = completionDetails[cleanUrl];
                 
@@ -717,12 +804,13 @@
                     originalUrl: url,
                     cleanUrl: cleanUrl,
                     retries: retries,
-                    details: details
+                    details: details,
+                    isCompleted: isCompleted
                 };
                 
                 if (isCompleted) {
                     processed.push(urlInfo);
-                } else if (retries >= 3) {
+                } else if (retries >= window.commentConfig?.maxRetries || retries >= 3) {
                     failed.push(urlInfo);
                 } else {
                     pending.push(urlInfo);
@@ -740,10 +828,16 @@
         try {
             const retryCount = GM_getValue('retryCount', {});
             const completedUrls = window.getCompletedUrls();
+            const maxRetries = window.commentConfig?.maxRetries || 3;
             
-            return Object.keys(retryCount).filter(url => 
-                retryCount[url] >= 3 && !completedUrls.includes(url)
-            );
+            return Object.keys(retryCount).filter(url => {
+                const isCompleted = completedUrls.some(completedUrl => {
+                    const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
+                    const cleanUrl = url.split('#')[0].split('?')[0];
+                    return cleanCompleted === cleanUrl;
+                });
+                return retryCount[url] >= maxRetries && !isCompleted;
+            });
         } catch (e) {
             console.error('Error getting failed URLs:', e);
             return [];
@@ -780,6 +874,173 @@
             return false;
         }
     };
+
+    // ADDITIONAL: Get pending URLs (not completed and not failed)
+    window.getPendingUrls = function() {
+        try {
+            if (!window.targetUrls || window.targetUrls.length === 0) {
+                return [];
+            }
+
+            const completedUrls = window.getCompletedUrls();
+            const retryCount = GM_getValue('retryCount', {});
+            const maxRetries = window.commentConfig?.maxRetries || 3;
+
+            return window.targetUrls.filter(url => {
+                const cleanUrl = window.cleanUrl(url);
+                const isCompleted = completedUrls.some(completedUrl => {
+                    const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
+                    return cleanCompleted === cleanUrl;
+                });
+                const retries = retryCount[cleanUrl] || 0;
+                
+                return !isCompleted && retries < maxRetries;
+            });
+        } catch (e) {
+            console.error('Error getting pending URLs:', e);
+            return [];
+        }
+    };
+
+    // ADDITIONAL: Get next URL to process
+    window.getNextUrlToProcess = function() {
+        try {
+            const currentIndex = window.getCurrentUrlIndex();
+            const pendingUrls = window.getPendingUrls();
+            
+            if (pendingUrls.length === 0) {
+                return null;
+            }
+
+            // Find next URL from current index
+            for (let i = currentIndex; i < window.targetUrls.length; i++) {
+                const url = window.targetUrls[i];
+                if (pendingUrls.includes(url)) {
+                    return {
+                        url: url,
+                        index: i,
+                        cleanUrl: window.cleanUrl(url)
+                    };
+                }
+            }
+
+            // If no URL found from current index, start from beginning
+            for (let i = 0; i < currentIndex; i++) {
+                const url = window.targetUrls[i];
+                if (pendingUrls.includes(url)) {
+                    return {
+                        url: url,
+                        index: i,
+                        cleanUrl: window.cleanUrl(url)
+                    };
+                }
+            }
+
+            return null;
+        } catch (e) {
+            console.error('Error getting next URL to process:', e);
+            return null;
+        }
+    };
+
+    // ADDITIONAL: Progress summary
+    window.getProgressSummary = function() {
+        try {
+            const progress = window.getUrlProgress();
+            const statistics = window.getStatistics();
+            const currentSession = window.getCurrentSession();
+            
+            return {
+                total: window.targetUrls ? window.targetUrls.length : 0,
+                processed: progress.processed.length,
+                pending: progress.pending.length,
+                failed: progress.failed.length,
+                successRate: statistics.successRate,
+                totalRetries: statistics.totalRetries,
+                currentIndex: window.getCurrentUrlIndex(),
+                sessionId: currentSession ? currentSession.id : null,
+                sessionStarted: currentSession ? currentSession.startedAt : null,
+                lastUpdate: new Date().toISOString()
+            };
+        } catch (e) {
+            console.error('Error getting progress summary:', e);
+            return {
+                total: 0,
+                processed: 0,
+                pending: 0,
+                failed: 0,
+                successRate: 0,
+                totalRetries: 0,
+                currentIndex: 0,
+                sessionId: null,
+                sessionStarted: null,
+                lastUpdate: new Date().toISOString()
+            };
+        }
+    };
+
+    // ADDITIONAL: Validate storage integrity
+    window.validateStorageIntegrity = function() {
+        try {
+            const issues = [];
+            const fixes = [];
+
+            // Check completed URLs
+            const completedUrls = window.getCompletedUrls();
+            if (!Array.isArray(completedUrls)) {
+                issues.push('Completed URLs is not an array');
+                fixes.push(() => window.setCompletedUrls([]));
+            }
+
+            // Check retry counts
+            const retryCount = GM_getValue('retryCount', {});
+            if (typeof retryCount !== 'object' || retryCount === null) {
+                issues.push('Retry count is not an object');
+                fixes.push(() => GM_setValue('retryCount', {}));
+            }
+
+            // Check current URL index
+            const currentIndex = window.getCurrentUrlIndex();
+            if (isNaN(currentIndex) || currentIndex < 0) {
+                issues.push('Current URL index is invalid');
+                fixes.push(() => window.setCurrentUrlIndex(0));
+            }
+
+            // Check if current index is beyond target URLs
+            if (window.targetUrls && currentIndex >= window.targetUrls.length) {
+                issues.push('Current URL index is beyond target URLs length');
+                fixes.push(() => window.setCurrentUrlIndex(0));
+            }
+
+            // Auto-fix if requested
+            if (issues.length > 0) {
+                console.warn('🔧 Storage integrity issues found:', issues);
+                
+                // Apply fixes
+                fixes.forEach((fix, index) => {
+                    try {
+                        fix();
+                        console.log(`✅ Fixed: ${issues[index]}`);
+                    } catch (e) {
+                        console.error(`❌ Failed to fix: ${issues[index]}`, e);
+                    }
+                });
+            }
+
+            return {
+                isValid: issues.length === 0,
+                issues: issues,
+                fixesApplied: fixes.length
+            };
+        } catch (e) {
+            console.error('Error validating storage integrity:', e);
+            return {
+                isValid: false,
+                issues: ['Validation failed: ' + e.message],
+                fixesApplied: 0
+            };
+        }
+    };
     
     // Initialize storage health check on load
     setTimeout(() => {
@@ -787,13 +1048,25 @@
         if (health.status !== 'healthy') {
             console.warn('⚠️ Storage health issues detected:', health.issues);
         }
+
+        // Also validate storage integrity
+        const integrity = window.validateStorageIntegrity();
+        if (!integrity.isValid) {
+            console.warn('⚠️ Storage integrity issues detected and fixed:', integrity.issues);
+        }
     }, 1000);
     
     // Auto cleanup every hour
     setInterval(() => {
         window.cleanupStorage();
     }, 60 * 60 * 1000);
+
+    // Auto integrity check every 30 minutes
+    setInterval(() => {
+        window.validateStorageIntegrity();
+    }, 30 * 60 * 1000);
     
-    console.log('✅ Enhanced Storage Management helper loaded');
+    console.log('✅ Enhanced Storage Management helper loaded with retry functions');
     
 })();
+
