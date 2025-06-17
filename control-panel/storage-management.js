@@ -79,55 +79,103 @@
         }
     };
 
-    // Enhanced URL completion functions
-    window.markUrlAsCompleted = function(url, reason = 'Comment submitted') {
-        try {
-            const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
-            const completedUrls = window.getCompletedUrls();
-
-            if (!completedUrls.includes(cleanUrl)) {
-                completedUrls.push(cleanUrl);
-                window.setCompletedUrls(completedUrls);
-                
-                // Store completion details
-                window.setUrlCompletionDetails(cleanUrl, {
-                    reason: reason,
-                    timestamp: new Date().toISOString(),
-                    originalUrl: url,
-                    userAgent: navigator.userAgent.substring(0, 100)
-                });
-                
-                console.log(`✅ Marked as completed: ${cleanUrl} (${reason})`);
-                
-                // Show toast notification
-                if (typeof window.showToast === 'function') {
-                    window.showToast(`URL completed: ${reason}`, 'success');
-                }
-                
-                // Log completion
-                if (typeof window.logMessage === 'function') {
-                    window.logMessage('completion', `URL marked as completed: ${reason}`, { url: cleanUrl });
-                }
-                
-                return true;
-            }
+    // Enhanced markUrlAsCompleted with hash preservation
+    window.markUrlAsCompleted = function(originalUrl, finalUrl, reason = 'Comment submitted') {
+        let urlToStore = originalUrl;
+        
+        // Jika finalUrl ada dan berbeda dari originalUrl, analisis perubahan
+        if (finalUrl && finalUrl !== originalUrl) {
+            const finalUrlObj = new URL(finalUrl);
+            const originalUrlObj = new URL(originalUrl);
             
-            return false;
-        } catch (e) {
-            console.error('Error marking URL as completed:', e);
-            return false;
+            // Jika ada hash comment di final URL, simpan URL dengan hash
+            if (finalUrlObj.hash && finalUrlObj.hash.includes('#comment-')) {
+                urlToStore = finalUrl;
+                console.log(`Storing URL with comment hash: ${urlToStore}`);
+            }
+            // Jika ada parameter comment di final URL, simpan URL dengan parameter
+            else if (finalUrlObj.searchParams.has('comment') || 
+                     finalUrlObj.search.includes('comment=') ||
+                     finalUrlObj.search.includes('submitted=')) {
+                urlToStore = finalUrl;
+                console.log(`Storing URL with comment parameters: ${urlToStore}`);
+            }
+            // Jika tidak ada indikator comment, simpan URL asli (clean)
+            else {
+                urlToStore = originalUrl.split('#')[0].split('?')[0];
+                console.log(`Storing clean original URL: ${urlToStore}`);
+            }
+        } else {
+            // Jika tidak ada finalUrl, simpan URL asli (clean)
+            urlToStore = originalUrl.split('#')[0].split('?')[0];
+            console.log(`Storing original URL (no final URL): ${urlToStore}`);
+        }
+        
+        const completedUrls = window.getCompletedUrls();
+
+        // Cek apakah URL sudah ada (dalam bentuk apapun)
+        const cleanOriginal = originalUrl.split('#')[0].split('?')[0];
+        const isAlreadyCompleted = completedUrls.some(url => {
+            const cleanCompleted = url.split('#')[0].split('?')[0];
+            return cleanCompleted === cleanOriginal;
+        });
+
+        if (!isAlreadyCompleted) {
+            completedUrls.push(urlToStore);
+            window.setCompletedUrls(completedUrls);
+            console.log(`✅ Marked as completed: ${urlToStore} (${reason})`);
+            
+            // Log detail untuk debugging
+            window.logMessage('success', 'URL marked as completed', {
+                originalUrl: originalUrl,
+                finalUrl: finalUrl,
+                storedUrl: urlToStore,
+                reason: reason
+            });
+        } else {
+            console.log(`URL already completed: ${cleanOriginal}`);
         }
     };
 
+    // Enhanced function to check if URL is completed (check both clean and hash versions)
     window.isUrlCompleted = function(url) {
-        try {
-            const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
-            const completedUrls = window.getCompletedUrls();
-            return completedUrls.includes(cleanUrl);
-        } catch (e) {
-            console.error('Error checking URL completion:', e);
-            return false;
-        }
+        const cleanUrl = url.split('#')[0].split('?')[0];
+        const completedUrls = window.getCompletedUrls();
+        
+        // Cek apakah ada URL yang match (baik clean maupun dengan hash/parameter)
+        return completedUrls.some(completedUrl => {
+            const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
+            return cleanCompleted === cleanUrl;
+        });
+    };
+
+    // New: Get completed URL with its stored format
+    window.getCompletedUrlFormat = function(url) {
+        const cleanUrl = url.split('#')[0].split('?')[0];
+        const completedUrls = window.getCompletedUrls();
+        
+        const matchedUrl = completedUrls.find(completedUrl => {
+            const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
+            return cleanCompleted === cleanUrl;
+        });
+        
+        return matchedUrl || null;
+    };
+
+    // Enhanced display function for completed URLs
+    window.getCompletedUrlsDisplay = function() {
+        const completedUrls = window.getCompletedUrls();
+        
+        return completedUrls.map((url, index) => {
+            const hasHash = url.includes('#comment-');
+            const hasParams = url.includes('comment=') || url.includes('submitted=');
+            
+            return {
+                index: index + 1,
+                url: url,
+                type: hasHash ? 'hash' : (hasParams ? 'parameter' : 'clean')
+            };
+        });
     };
     
     // New: URL completion details
