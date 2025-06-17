@@ -34,7 +34,14 @@
         let statusText = 'Not Target URL';
         let statusIcon = '⚪';
 
-        if (currentUrl.includes('wp-comments-post.php')) {
+        // Check if bot is paused
+        const isPaused = window.botPaused || false;
+
+        if (isPaused) {
+            statusColor = '#FF9800';
+            statusText = 'PAUSED';
+            statusIcon = '⏸️';
+        } else if (currentUrl.includes('wp-comments-post.php')) {
             statusColor = '#f44336';
             statusText = 'ERROR: wp-comments-post.php';
             statusIcon = '❌';
@@ -58,21 +65,30 @@
                 📋 Checkbox Settings:
             </div>
             <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
-                ${window.commentConfig.handleCheckboxes ? '✅' : '❌'} Handle Checkboxes
+                ${window.commentConfig && window.commentConfig.handleCheckboxes ? '✅' : '❌'} Handle Checkboxes
             </div>
             <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
-                ${window.commentConfig.autoCheckConsent ? '✅' : '❌'} Auto Consent
+                ${window.commentConfig && window.commentConfig.autoCheckConsent ? '✅' : '❌'} Auto Consent
             </div>
             <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
-                ${window.commentConfig.autoCheckPrivacy ? '✅' : '❌'} Auto Privacy
+                ${window.commentConfig && window.commentConfig.autoCheckPrivacy ? '✅' : '❌'} Auto Privacy
             </div>
             <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
-                ${window.commentConfig.autoCheckTerms ? '✅' : '❌'} Auto Terms
+                ${window.commentConfig && window.commentConfig.autoCheckTerms ? '✅' : '❌'} Auto Terms
             </div>
             <div style="font-size: 10px; color: #ccc; margin-bottom: 8px;">
-                ${window.commentConfig.autoCheckNewsletter ? '✅' : '❌'} Auto Newsletter
+                ${window.commentConfig && window.commentConfig.autoCheckNewsletter ? '✅' : '❌'} Auto Newsletter
             </div>
         `;
+
+        // Pause/Resume button
+        const pauseResumeBtn = isPaused ? 
+            `<button id="resumeBtn" style="background: #4CAF50; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold;">
+                ▶️ Resume
+            </button>` :
+            `<button id="pauseBtn" style="background: #FF9800; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold;">
+                ⏸️ Pause
+            </button>`;
 
         panel.innerHTML = `
             <div id="panelHeader" style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px; cursor: move;">
@@ -85,11 +101,11 @@
             </div>
 
             <div style="margin-bottom: 8px;">
-                <strong>Progress:</strong> ${completedUrls.length}/${window.targetUrls.length} URLs
+                <strong>Progress:</strong> ${completedUrls.length}/${window.targetUrls ? window.targetUrls.length : 0} URLs
             </div>
 
             <div style="margin-bottom: 8px;">
-                <strong>Current:</strong> ${currentIndex + 1}/${window.targetUrls.length}
+                <strong>Current:</strong> ${currentIndex + 1}/${window.targetUrls ? window.targetUrls.length : 0}
             </div>
 
             ${currentUrl.includes('wp-comments-post.php') ? `
@@ -101,12 +117,27 @@
                 </div>
             ` : ''}
 
+            ${isPaused ? `
+                <div style="margin-bottom: 8px; color: #FF9800; font-weight: bold; text-align: center; padding: 5px; border: 1px solid #FF9800; border-radius: 3px;">
+                    ⏸️ BOT PAUSED
+                </div>
+                <div style="margin-bottom: 8px; font-size: 11px; color: #FFE0B2; text-align: center;">
+                    Click Resume to continue processing
+                </div>
+            ` : ''}
+
             <div style="margin-bottom: 10px; font-size: 11px; color: #ccc;">
                 ${isTarget ? 'Target URL' : 'Non-target URL'}
             </div>
 
             ${checkboxStatus}
 
+            <!-- PAUSE/RESUME BUTTON ROW -->
+            <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; justify-content: center;">
+                ${pauseResumeBtn}
+            </div>
+
+            <!-- CONTROL BUTTONS ROW -->
             <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px;">
                 <button id="resetBtn" style="background: #f44336; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     Reset
@@ -125,6 +156,7 @@
                 </button>
             </div>
 
+            <!-- DOWNLOAD BUTTON ROW -->
             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                 <button id="downloadBtn" style="background: #4CAF50; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     📥 Results
@@ -138,13 +170,13 @@
         window.makePanelDraggable(panel);
 
         // Event listeners
-        document.getElementById('resetBtn').addEventListener('click', () => {
+        document.getElementById('resetBtn')?.addEventListener('click', () => {
             if (confirm('Reset all progress?')) {
                 window.resetAllProgress();
             }
         });
 
-        document.getElementById('retryBtn').addEventListener('click', () => {
+        document.getElementById('retryBtn')?.addEventListener('click', () => {
             window.submitAttempted = false;
             window.isWaitingForUrlChange = false;
             window.retryCount = 0;
@@ -172,35 +204,159 @@
 
             window.updateControlPanel();
             setTimeout(() => {
-                window.proceedWithComment();
+                if (typeof window.proceedWithComment === 'function') {
+                    window.proceedWithComment();
+                }
             }, 1000);
         });
 
-        document.getElementById('skipBtn').addEventListener('click', () => {
+        document.getElementById('skipBtn')?.addEventListener('click', () => {
             if (confirm('Skip current URL?')) {
                 const currentUrl = window.location.href.split('#')[0];
-                window.markUrlAsCompleted(currentUrl, 'Manually skipped');
-                window.navigateToNextUrl();
+                if (typeof window.markUrlAsCompleted === 'function') {
+                    window.markUrlAsCompleted(currentUrl, 'Manually skipped');
+                }
+                if (typeof window.navigateToNextUrl === 'function') {
+                    window.navigateToNextUrl();
+                }
             }
         });
 
-        document.getElementById('debugBtn').addEventListener('click', () => {
+        document.getElementById('debugBtn')?.addEventListener('click', () => {
             window.showDebugModal();
         });
 
-        document.getElementById('checkboxBtn').addEventListener('click', () => {
+        document.getElementById('checkboxBtn')?.addEventListener('click', () => {
             window.testCheckboxHandling();
         });
 
+        // PAUSE BUTTON EVENT LISTENER
+        document.getElementById('pauseBtn')?.addEventListener('click', () => {
+            window.pauseBot();
+        });
+
+        // RESUME BUTTON EVENT LISTENER
+        document.getElementById('resumeBtn')?.addEventListener('click', () => {
+            window.resumeBot();
+        });
+
         // TOMBOL DOWNLOAD RESULTS
-        document.getElementById('downloadBtn').addEventListener('click', () => {
+        document.getElementById('downloadBtn')?.addEventListener('click', () => {
             window.downloadResults();
         });
     };
 
+    // PAUSE BOT FUNCTION
+    window.pauseBot = function() {
+        window.botPaused = true;
+        
+        // Clear any running timers
+        if (window.urlChangeTimer) {
+            clearTimeout(window.urlChangeTimer);
+            window.urlChangeTimer = null;
+        }
+        
+        // Clear any waiting messages
+        if (typeof window.removeWaitingMessage === 'function') {
+            window.removeWaitingMessage();
+        }
+        
+        // Reset submit status
+        window.submitAttempted = false;
+        window.isWaitingForUrlChange = false;
+        
+        console.log('⏸️ Bot PAUSED by user');
+        
+        // Show pause message
+        window.showPauseMessage();
+        
+        // Update control panel
+        window.updateControlPanel();
+    };
+
+    // RESUME BOT FUNCTION
+    window.resumeBot = function() {
+        window.botPaused = false;
+        
+        console.log('▶️ Bot RESUMED by user');
+        
+        // Remove pause message
+        window.removePauseMessage();
+        
+        // Update control panel
+        window.updateControlPanel();
+        
+        // Continue processing if on target URL
+        setTimeout(() => {
+            if (typeof window.isTargetUrl === 'function' && window.isTargetUrl()) {
+                if (typeof window.hasAlreadyCommented === 'function' && !window.hasAlreadyCommented()) {
+                    console.log('▶️ Resuming comment processing...');
+                    if (typeof window.proceedWithComment === 'function') {
+                        window.proceedWithComment();
+                    }
+                } else {
+                    console.log('▶️ Current URL already completed, navigating to next...');
+                    if (typeof window.navigateToNextUrl === 'function') {
+                        window.navigateToNextUrl();
+                    }
+                }
+            }
+        }, 1000);
+    };
+
+    // SHOW PAUSE MESSAGE
+    window.showPauseMessage = function() {
+        // Remove existing pause message first
+        window.removePauseMessage();
+        
+        const pauseDiv = document.createElement('div');
+        pauseDiv.id = 'botPauseMessage';
+        pauseDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10001;
+            background: rgba(255, 152, 0, 0.95);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            min-width: 300px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        `;
+
+        pauseDiv.innerHTML = `
+            <div style="margin-bottom: 15px; font-size: 20px;">⏸️ Bot Paused</div>
+            <div style="font-size: 14px; margin-bottom: 15px;">
+                Auto processing has been stopped
+            </div>
+            <div style="font-size: 12px; opacity: 0.8;">
+                Click Resume in control panel to continue
+            </div>
+        `;
+
+        document.body.appendChild(pauseDiv);
+    };
+
+    // REMOVE PAUSE MESSAGE
+    window.removePauseMessage = function() {
+        const pauseDiv = document.getElementById('botPauseMessage');
+        if (pauseDiv) {
+            pauseDiv.remove();
+        }
+    };
+
+    // CHECK IF BOT IS PAUSED (for other scripts to use)
+    window.isBotPaused = function() {
+        return window.botPaused || false;
+    };
+
     // FUNGSI DRAG & DROP
     window.makePanelDraggable = function(panel) {
-        let isDragging = false;
+               let isDragging = false;
         let currentX;
         let currentY;
         let initialX;
@@ -279,8 +435,14 @@
             const timeString = currentDate.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
             
             // Ambil URL dengan detail lengkap
-            const successUrls = window.getSuccessUrls();
-            const errorUrls = window.getErrorUrls();
+            let successUrls = [];
+            let errorUrls = [];
+            
+            // Check if enhanced functions exist
+            if (typeof window.getSuccessUrls === 'function' && typeof window.getErrorUrls === 'function') {
+                successUrls = window.getSuccessUrls();
+                errorUrls = window.getErrorUrls();
+            }
             
             // Fallback: jika tidak ada data di storage baru, gunakan cara lama
             if (successUrls.length === 0 && errorUrls.length === 0) {
@@ -297,29 +459,45 @@
             }
             
             // Buat konten file
-            let content = '';
+            let content = `Auto Backlink Bot Results - ${dateString} ${timeString.replace(/-/g, ':')}\n`;
+            content += '='.repeat(60) + '\n\n';
             
             // Bagian SUCCESS
+            content += `SUCCESS URLS (${successUrls.length}):\n`;
+            content += '-'.repeat(30) + '\n';
             if (successUrls.length > 0) {
-                successUrls.forEach(url => {
-                    content += url + '\n';
+                successUrls.forEach((url, index) => {
+                    content += `${index + 1}. ${url}\n`;
                 });
+            } else {
+                content += 'No successful URLs found.\n';
             }
             
-            // Garis pemisah
-            content += '---\n';
+            content += '\n';
             
             // Bagian ERROR
+            content += `ERROR URLS (${errorUrls.length}):\n`;
+            content += '-'.repeat(30) + '\n';
             if (errorUrls.length > 0) {
-                errorUrls.forEach(url => {
-                    content += url + '\n';
+                errorUrls.forEach((url, index) => {
+                    content += `${index + 1}. ${url}\n`;
                 });
+            } else {
+                content += 'No error URLs found.\n';
             }
             
-            // Jika tidak ada data
-            if (successUrls.length === 0 && errorUrls.length === 0) {
-                content = 'No results found.\n---\n';
-            }
+            // Summary
+            const total = successUrls.length + errorUrls.length;
+            const successRate = total > 0 ? Math.round((successUrls.length / total) * 100) : 0;
+            
+            content += '\n' + '='.repeat(60) + '\n';
+            content += 'SUMMARY:\n';
+            content += `- Total Processed: ${total}\n`;
+            content += `- Successful: ${successUrls.length}\n`;
+            content += `- Errors: ${errorUrls.length}\n`;
+            content += `- Success Rate: ${successRate}%\n`;
+            content += `- Bot Status: ${window.botPaused ? 'PAUSED' : 'ACTIVE'}\n`;
+            content += '='.repeat(60) + '\n';
             
             // Buat dan download file
             const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -335,8 +513,6 @@
             window.URL.revokeObjectURL(url);
             
             console.log('📥 Results downloaded - Success:', successUrls.length, 'Error:', errorUrls.length);
-            console.log('📥 Success URLs:', successUrls);
-            console.log('📥 Error URLs:', errorUrls);
             
             // Show success message
             const successMsg = document.createElement('div');
@@ -354,7 +530,7 @@
                 font-size: 14px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             `;
-            successMsg.innerHTML = `📥 Downloaded!<br>✅ Success: ${successUrls.length}<br>❌ Error: ${errorUrls.length}`;
+            successMsg.innerHTML = `📥 Downloaded!<br>✅ Success: ${successUrls.length}<br>❌ Error: ${errorUrls.length}<br>📊 Rate: ${successRate}%`;
             document.body.appendChild(successMsg);
             
             setTimeout(() => {
@@ -380,6 +556,10 @@
 
     // Reset all progress
     window.resetAllProgress = function() {
+        // Pause bot first
+        window.botPaused = false;
+        window.removePauseMessage();
+        
         GM_deleteValue('currentUrlIndex');
         GM_deleteValue('completedUrls');
         GM_deleteValue('completedUrlsWithDetails'); // NEW: Reset storage baru juga
@@ -397,7 +577,7 @@
         console.log('🔄 All progress reset');
         window.updateControlPanel();
 
-        if (window.targetUrls.length > 0) {
+        if (window.targetUrls && window.targetUrls.length > 0) {
             setTimeout(() => {
                 window.location.href = window.targetUrls[0];
             }, 1000);
@@ -414,18 +594,23 @@
 
         forms.forEach((form, index) => {
             console.log(`📝 Testing form ${index + 1}:`);
-            const checkboxes = window.findCheckboxes(form);
+            
+            if (typeof window.findCheckboxes === 'function') {
+                const checkboxes = window.findCheckboxes(form);
 
-            for (let category in checkboxes) {
-                if (checkboxes[category].length > 0) {
-                    totalCheckboxes += checkboxes[category].length;
-                    console.log(`  ${category}: ${checkboxes[category].length} checkboxes`);
+                for (let category in checkboxes) {
+                    if (checkboxes[category].length > 0) {
+                        totalCheckboxes += checkboxes[category].length;
+                        console.log(`  ${category}: ${checkboxes[category].length} checkboxes`);
+                    }
                 }
-            }
 
-            if (window.commentConfig.handleCheckboxes) {
-                const handled = window.handleCheckboxes(form);
-                if (handled) handledCheckboxes++;
+                if (window.commentConfig && window.commentConfig.handleCheckboxes) {
+                    if (typeof window.handleCheckboxes === 'function') {
+                        const handled = window.handleCheckboxes(form);
+                        if (handled) handledCheckboxes++;
+                    }
+                }
             }
         });
 
@@ -434,7 +619,7 @@
 - Total forms: ${forms.length}
 - Total checkboxes: ${totalCheckboxes}
 - Forms with checkboxes handled: ${handledCheckboxes}
-- Checkbox handling enabled: ${window.commentConfig.handleCheckboxes}
+- Checkbox handling enabled: ${window.commentConfig ? window.commentConfig.handleCheckboxes : 'N/A'}
 
 Check console for detailed results.
         `;
@@ -443,7 +628,7 @@ Check console for detailed results.
         console.log('📋 Checkbox test completed');
     };
 
-    // Show debug modal
+    // Show debug modal - ENHANCED WITH PAUSE STATUS
     window.showDebugModal = function() {
         const completedUrls = window.getCompletedUrls();
         const currentIndex = window.getCurrentUrlIndex();
@@ -477,31 +662,49 @@ Check console for detailed results.
 
         let debugInfo = '';
         try {
-            const successDetected = window.detectCommentSuccess();
-            const errorDetected = window.detectCommentError();
-            const urlChanged = window.hasUrlChanged(window.originalUrl, currentUrl);
+            // Safe function calls
+            const successDetected = typeof window.detectCommentSuccess === 'function' ? 
+                window.detectCommentSuccess() : { success: false, reason: 'Function not available' };
+            const errorDetected = typeof window.detectCommentError === 'function' ? 
+                window.detectCommentError() : { error: false, reason: 'Function not available' };
+            const urlChanged = typeof window.hasUrlChanged === 'function' ? 
+                window.hasUrlChanged(window.originalUrl, currentUrl) : 'Unknown';
 
-            // NEW: Ambil data dari storage baru
-            const successUrls = window.getSuccessUrls();
-            const errorUrls = window.getErrorUrls();
-            const completedUrlsWithDetails = window.getCompletedUrlsWithDetails();
+            // Enhanced data (if available)
+            let successUrls = [];
+            let errorUrls = [];
+            let completedUrlsWithDetails = [];
+            
+            if (typeof window.getSuccessUrls === 'function') {
+                successUrls = window.getSuccessUrls();
+            }
+            if (typeof window.getErrorUrls === 'function') {
+                errorUrls = window.getErrorUrls();
+            }
+            if (typeof window.getCompletedUrlsWithDetails === 'function') {
+                completedUrlsWithDetails = window.getCompletedUrlsWithDetails();
+            }
 
             debugInfo = `
-🔍 AUTO BACKLINK BOT DEBUG v4.0
-================================
+🔍 AUTO BACKLINK BOT DEBUG v4.0 - WITH PAUSE CONTROL
+====================================================
 
 📊 Current Status:
 - Current URL: ${currentUrl}
-- Original URL: ${window.originalUrl}
+- Original URL: ${window.originalUrl || 'Not set'}
 - Current Index: ${currentIndex}
-- Total Target URLs: ${window.targetUrls.length}
+- Total Target URLs: ${window.targetUrls ? window.targetUrls.length : 0}
 - Completed Count: ${completedUrls.length}
-- Is Target URL: ${window.isTargetUrl()}
-- Already Commented: ${window.hasAlreadyCommented()}
+- Is Target URL: ${typeof window.isTargetUrl === 'function' ? window.isTargetUrl() : 'Unknown'}
+- Already Commented: ${typeof window.hasAlreadyCommented === 'function' ? window.hasAlreadyCommented() : 'Unknown'}
+
+⏸️ Bot Control Status:
+- Bot Paused: ${window.botPaused || false}
+- Pause Message Visible: ${document.getElementById('botPauseMessage') ? 'Yes' : 'No'}
 
 🔄 Submit Status:
-- Submit Attempted: ${window.submitAttempted}
-- Waiting for URL Change: ${window.isWaitingForUrlChange}
+- Submit Attempted: ${window.submitAttempted || false}
+- Waiting for URL Change: ${window.isWaitingForUrlChange || false}
 - URL Change Timer Active: ${window.urlChangeTimer !== null}
 
 🎯 URL Analysis:
@@ -518,38 +721,50 @@ Check console for detailed results.
 - Error Reason: ${errorDetected.reason || 'none'}
 
 📋 Checkbox Configuration:
-- Handle Checkboxes: ${window.commentConfig.handleCheckboxes}
-- Auto Check Consent: ${window.commentConfig.autoCheckConsent}
-- Auto Check Privacy: ${window.commentConfig.autoCheckPrivacy}
-- Auto Check Terms: ${window.commentConfig.autoCheckTerms}
-- Auto Check Newsletter: ${window.commentConfig.autoCheckNewsletter}
+- Handle Checkboxes: ${window.commentConfig ? window.commentConfig.handleCheckboxes : 'N/A'}
+- Auto Check Consent: ${window.commentConfig ? window.commentConfig.autoCheckConsent : 'N/A'}
+- Auto Check Privacy: ${window.commentConfig ? window.commentConfig.autoCheckPrivacy : 'N/A'}
+- Auto Check Terms: ${window.commentConfig ? window.commentConfig.autoCheckTerms : 'N/A'}
+- Auto Check Newsletter: ${window.commentConfig ? window.commentConfig.autoCheckNewsletter : 'N/A'}
 
 📊 Results Summary:
 - Success URLs: ${successUrls.length}
 - Error URLs: ${errorUrls.length}
 - Total Processed: ${completedUrlsWithDetails.length}
+- Success Rate: ${successUrls.length + errorUrls.length > 0 ? Math.round((successUrls.length / (successUrls.length + errorUrls.length)) * 100) : 0}%
 
-🎯 Target URLs:
-${window.targetUrls.map((url, index) => {
-    const isCompleted = completedUrls.includes(url.split('#')[0].split('?')[0]);
+🎯 Target URLs (First 10):
+${window.targetUrls ? window.targetUrls.slice(0, 10).map((url, index) => {
+        const isCompleted = completedUrls.includes(url.split('#')[0].split('?')[0]);
     const isCurrent = index === currentIndex;
     const status = isCompleted ? '✅' : (isCurrent ? '👉' : '⏳');
     return `${status} ${index + 1}. ${url}`;
-}).join('\n')}
+}).join('\n') : 'No target URLs found'}
+${window.targetUrls && window.targetUrls.length > 10 ? `... and ${window.targetUrls.length - 10} more URLs` : ''}
 
-✅ Success URLs (with hash):
-${successUrls.length > 0 ? successUrls.map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
+✅ Success URLs (Latest 5):
+${successUrls.length > 0 ? successUrls.slice(-5).map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
 
-❌ Error URLs:
-${errorUrls.length > 0 ? errorUrls.map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
+❌ Error URLs (Latest 5):
+${errorUrls.length > 0 ? errorUrls.slice(-5).map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
 
-📋 Detailed Results:
-${completedUrlsWithDetails.length > 0 ? completedUrlsWithDetails.map((item, index) => 
-    `${index + 1}. [${item.status.toUpperCase()}] ${item.fullUrl} (${item.reason})`
+📋 Detailed Results (Latest 5):
+${completedUrlsWithDetails.length > 0 ? completedUrlsWithDetails.slice(-5).map((item, index) => 
+    `${index + 1}. [${item.status ? item.status.toUpperCase() : 'UNKNOWN'}] ${item.fullUrl || item.url || 'Unknown URL'} (${item.reason || 'No reason'})`
 ).join('\n') : 'None'}
+
+🔧 Available Functions:
+- detectCommentSuccess: ${typeof window.detectCommentSuccess === 'function' ? '✅' : '❌'}
+- detectCommentError: ${typeof window.detectCommentError === 'function' ? '✅' : '❌'}
+- isTargetUrl: ${typeof window.isTargetUrl === 'function' ? '✅' : '❌'}
+- hasAlreadyCommented: ${typeof window.hasAlreadyCommented === 'function' ? '✅' : '❌'}
+- proceedWithComment: ${typeof window.proceedWithComment === 'function' ? '✅' : '❌'}
+- navigateToNextUrl: ${typeof window.navigateToNextUrl === 'function' ? '✅' : '❌'}
+- getSuccessUrls: ${typeof window.getSuccessUrls === 'function' ? '✅' : '❌'}
+- getErrorUrls: ${typeof window.getErrorUrls === 'function' ? '✅' : '❌'}
             `;
         } catch (e) {
-            debugInfo = `Error generating debug info: ${e.message}`;
+            debugInfo = `Error generating debug info: ${e.message}\n\nStack trace:\n${e.stack}`;
         }
 
         content.innerHTML = `
@@ -573,7 +788,18 @@ ${completedUrlsWithDetails.length > 0 ? completedUrlsWithDetails.map((item, inde
             navigator.clipboard.writeText(debugInfo).then(() => {
                 alert('Debug info copied to clipboard!');
             }).catch(() => {
-                alert('Failed to copy debug info');
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = debugInfo;
+                document.body.appendChild(textArea);
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    alert('Debug info copied to clipboard!');
+                } catch (err) {
+                    alert('Failed to copy debug info. Please copy manually from the text area.');
+                }
+                document.body.removeChild(textArea);
             });
         });
 
@@ -588,9 +814,55 @@ ${completedUrlsWithDetails.length > 0 ? completedUrlsWithDetails.map((item, inde
             }
         });
     };
-    
-    console.log('✅ UI Control Panel helper loaded');
+
+    // ENHANCED: Check if processing should continue (respects pause state)
+    window.shouldContinueProcessing = function() {
+        if (window.botPaused) {
+            console.log('⏸️ Processing halted - Bot is paused');
+            return false;
+        }
+        return true;
+    };
+
+    // ENHANCED: Safe navigation function that respects pause state
+    window.safeNavigateToNextUrl = function() {
+        if (!window.shouldContinueProcessing()) {
+            console.log('⏸️ Navigation cancelled - Bot is paused');
+            return false;
+        }
+        
+        if (typeof window.navigateToNextUrl === 'function') {
+            window.navigateToNextUrl();
+            return true;
+        } else {
+            console.log('❌ navigateToNextUrl function not available');
+            return false;
+        }
+    };
+
+    // ENHANCED: Safe comment processing that respects pause state
+    window.safeProceedWithComment = function() {
+        if (!window.shouldContinueProcessing()) {
+            console.log('⏸️ Comment processing cancelled - Bot is paused');
+            return false;
+        }
+        
+        if (typeof window.proceedWithComment === 'function') {
+            window.proceedWithComment();
+            return true;
+        } else {
+            console.log('❌ proceedWithComment function not available');
+            return false;
+        }
+    };
+
+    // Initialize bot pause state
+    if (typeof window.botPaused === 'undefined') {
+        window.botPaused = false;
+    }
+
+    console.log('✅ UI Control Panel helper loaded with Pause/Resume functionality');
     
 })();
 
-
+ 
