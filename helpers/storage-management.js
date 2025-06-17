@@ -45,6 +45,11 @@
             completedUrls.push(cleanUrl);
             window.setCompletedUrls(completedUrls);
             console.log(`✅ Marked as completed: ${cleanUrl} (${reason})`);
+            
+            // Update control panel if it exists
+            if (typeof window.updateControlPanel === 'function') {
+                window.updateControlPanel();
+            }
         }
     };
 
@@ -53,5 +58,7 @@
         const completedUrls = window.getCompletedUrls();
         return completedUrls.includes(cleanUrl);
     };
+    
+    console.log('✅ Storage Management helper loaded');
     
 })();
