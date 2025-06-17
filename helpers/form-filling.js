@@ -185,17 +185,35 @@
         if (!submitButton) {
             console.log('Submit button not found, trying form.submit()');
             setTimeout(() => {
-                window.handleFormSubmission(form, null);
+                // 🚪 PANGGIL closePopup sebelum submit
+                window.closePopup();
+                
+                // Delay sebentar lalu submit
+                setTimeout(() => {
+                    window.handleFormSubmission(form, null);
+                }, 1000);
             }, 1000);
             return true;
         }
 
+        // Highlight submit button
         submitButton.style.border = '3px solid #4CAF50';
         submitButton.style.borderRadius = '5px';
 
         setTimeout(() => {
-            console.log('🚀 Clicking submit button...');
-            window.handleFormSubmission(form, submitButton);
+            console.log('🚀 Preparing to submit...');
+            
+            // 🚪 PANGGIL closePopup sebelum submit
+            const popupClosed = window.closePopup();
+            
+            // Delay berdasarkan apakah popup ditutup atau tidak
+            const submitDelay = popupClosed ? 1500 : 500;
+            
+            setTimeout(() => {
+                console.log('🚀 Clicking submit button...');
+                window.handleFormSubmission(form, submitButton);
+            }, submitDelay);
+            
         }, 1000);
 
         return true;
