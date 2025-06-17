@@ -125,7 +125,7 @@
 
             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                 <button id="downloadBtn" style="background: #4CAF50; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
-                    📥 Download
+                    📥 Results
                 </button>
             </div>
         `;
@@ -187,29 +187,60 @@
             window.testCheckboxHandling();
         });
 
-        // TOMBOL DOWNLOAD - HANYA URL YANG DISIMPAN
+        // TOMBOL DOWNLOAD RESULTS
         document.getElementById('downloadBtn').addEventListener('click', () => {
-            window.downloadCompletedUrls();
+            window.downloadResults();
         });
     };
 
-    // FUNGSI DOWNLOAD SEDERHANA - HANYA URL
-    window.downloadCompletedUrls = function() {
+    // FUNGSI DOWNLOAD RESULTS (SUCCESS & ERROR)
+    window.downloadResults = function() {
         try {
             const completedUrls = window.getCompletedUrls();
             const currentDate = new Date();
             const dateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
             const timeString = currentDate.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
             
-            // Buat konten file - hanya URL
+            // Pisahkan SUCCESS dan ERROR
+            const successUrls = [];
+            const errorUrls = [];
+            
+            completedUrls.forEach(url => {
+                if (url.includes('wp-comments-post.php')) {
+                    // ERROR: wp-comments-post.php
+                    errorUrls.push(url);
+                } else if (url.includes('#comment-')) {
+                    // SUCCESS: ada hash comment
+                    successUrls.push(url);
+                } else {
+                    // SUCCESS: tidak ada hash (dianggap berhasil)
+                    successUrls.push(url);
+                }
+            });
+            
+            // Buat konten file
             let content = '';
             
-            if (completedUrls.length > 0) {
-                completedUrls.forEach((url) => {
+            // Bagian SUCCESS
+            if (successUrls.length > 0) {
+                successUrls.forEach(url => {
                     content += url + '\n';
                 });
-            } else {
-                content = 'No completed URLs found.\n';
+            }
+            
+            // Garis pemisah
+            content += '---\n';
+            
+            // Bagian ERROR
+            if (errorUrls.length > 0) {
+                errorUrls.forEach(url => {
+                    content += url + '\n';
+                });
+            }
+            
+            // Jika tidak ada data
+            if (successUrls.length === 0 && errorUrls.length === 0) {
+                content = 'No results found.\n---\n';
             }
             
             // Buat dan download file
@@ -217,7 +248,7 @@
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `completed-urls-${dateString}-${timeString}.txt`;
+            link.download = `bot-results-${dateString}-${timeString}.txt`;
             
             // Trigger download
             document.body.appendChild(link);
@@ -225,7 +256,7 @@
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
             
-            console.log('📥 Completed URLs downloaded successfully');
+            console.log('📥 Results downloaded - Success:', successUrls.length, 'Error:', errorUrls.length);
             
             // Show success message
             const successMsg = document.createElement('div');
@@ -243,17 +274,17 @@
                 font-size: 14px;
                 box-shadow: 0 4px 20px rgba(0,0,0,0.3);
             `;
-            successMsg.innerHTML = `📥 ${completedUrls.length} URLs downloaded!`;
+            successMsg.innerHTML = `📥 Downloaded!<br>✅ Success: ${successUrls.length}<br>❌ Error: ${errorUrls.length}`;
             document.body.appendChild(successMsg);
             
             setTimeout(() => {
                 if (successMsg.parentNode) {
                     successMsg.parentNode.removeChild(successMsg);
                 }
-            }, 3000);
+            }, 4000);
             
         } catch (error) {
-            console.error('❌ Error downloading URLs:', error);
+            console.error('❌ Error downloading results:', error);
             alert('Error saat mendownload file: ' + error.message);
         }
     };
