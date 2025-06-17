@@ -18,54 +18,60 @@
 
         console.log(`🔄 Navigating to next URL (${nextIndex + 1}/${window.targetUrls.length}): ${nextUrl}`);
 
+        // ⬇️ UPDATE BOT STATE
+        if (typeof window.setBotState === 'function') {
+            window.setBotState({
+                lastActivity: new Date().toISOString()
+            });
+        }
+
         setTimeout(() => {
             window.location.href = nextUrl;
         }, window.commentConfig.delayBetweenUrls);
     };
     
-    // Enhanced retry logic with better error handling
+    // Handle retry logic
     window.handleRetry = function(originalTargetUrl, errorReason) {
         const currentRetries = window.getRetryCount(originalTargetUrl);
+        const maxRetries = window.commentConfig?.maxRetries || 3;
 
-        if (currentRetries < window.commentConfig.maxRetries) {
+        if (currentRetries < maxRetries) {
             const newRetryCount = currentRetries + 1;
             window.setRetryCount(originalTargetUrl, newRetryCount);
 
-            console.log(`🔄 Retrying URL (${newRetryCount}/${window.commentConfig.maxRetries}): ${originalTargetUrl}`);
-            console.log(`🔄 Retry reason: ${errorReason}`);
+            console.log(`🔄 Retrying URL (${newRetryCount}/${maxRetries}): ${originalTargetUrl}`);
             
-            // Clean error message for display
-            const displayReason = window.cleanErrorMessage ? window.cleanErrorMessage(errorReason) : errorReason;
-            window.showRetryMessage(`Retry ${newRetryCount}/${window.commentConfig.maxRetries}: ${displayReason}`);
+            if (typeof window.showRetryMessage === 'function') {
+                window.showRetryMessage(`Retry ${newRetryCount}/${maxRetries}: ${errorReason}`);
+            }
+
+            // ⬇️ RESET RETRY COUNT JIKA PERLU (GUNAKAN FUNCTION YANG SUDAH ADA)
+            if (typeof window.resetRetryCount === 'function' && newRetryCount >= maxRetries) {
+                // Don't reset here, let it fail naturally
+            }
 
             setTimeout(() => {
                 window.submitAttempted = false;
                 window.isWaitingForUrlChange = false;
+                
+                // ⬇️ UPDATE BOT STATE
+                if (typeof window.setBotState === 'function') {
+                    window.setBotState({
+                        lastActivity: new Date().toISOString()
+                    });
+                }
+                
                 window.location.href = originalTargetUrl;
             }, 3000);
 
         } else {
             console.log(`❌ Max retries reached for: ${originalTargetUrl}`);
-            console.log(`❌ Final error: ${errorReason}`);
             
-            // Clean error message for user display
-            const userFriendlyError = window.getUserFriendlyError ? 
-                window.getUserFriendlyError(errorReason) : 
-                (errorReason.includes('wp-comments-post.php') ? 
-                    'WordPress comment submission failed' : 
-                    errorReason);
-            
-            window.showErrorMessage(`Max retries reached. Skipping URL: ${userFriendlyError}`);
-
-            // Store detailed error for debugging
-            const failureReason = `Failed after ${window.commentConfig.maxRetries} retries: ${errorReason}`;
-            window.markUrlAsCompleted(originalTargetUrl, failureReason);
-            
-            // Reset retry count after marking as failed
-            if (typeof window.resetRetryCount === 'function') {
-                window.resetRetryCount(originalTargetUrl);
-                console.log(`🔄 Reset retry count for failed URL: ${originalTargetUrl}`);
+            if (typeof window.showErrorMessage === 'function') {
+                window.showErrorMessage(`Max retries reached. Skipping URL: ${errorReason}`);
             }
+
+            window.markUrlAsCompleted(originalTargetUrl, originalTargetUrl, `Failed after ${maxRetries} retries: ${errorReason}`);
 
             setTimeout(() => {
                 window.navigateToNextUrl();
@@ -73,52 +79,21 @@
         }
     };
     
-    // Helper function to clean error messages
-    window.cleanErrorMessage = function(errorMessage) {
-        if (!errorMessage) return 'Unknown error';
-        
-        // Clean up wp-comments-post.php errors
-        if (errorMessage.includes('wp-comments-post.php')) {
-            return 'WordPress comment error';
-        }
-        
-        // Clean up other common errors
-        if (errorMessage.includes('Unknown')) {
-            return errorMessage.replace(/Unknown\s+/gi, '');
-        }
-        
-        return errorMessage;
-    };
-    
-    // Helper function for user-friendly error messages
-    window.getUserFriendlyError = function(errorMessage) {
-        if (!errorMessage) return 'Unknown error occurred';
-        
-        const errorMap = {
-            'wp-comments-post.php': 'Comment submission failed',
-            'timeout': 'Request timed out',
-            'network': 'Network connection error',
-            'permission': 'Permission denied',
-            'duplicate': 'Duplicate comment detected'
-        };
-        
-        for (const [key, friendlyMsg] of Object.entries(errorMap)) {
-            if (errorMessage.toLowerCase().includes(key)) {
-                return friendlyMsg;
-            }
-        }
-        
-        return window.cleanErrorMessage(errorMessage);
-    };
-    
-    // Enhanced URL monitoring (unchanged)
+    // Enhanced URL monitoring
     window.startUrlChangeMonitoring = function(originalUrl, onSuccess, onError, onTimeout) {
         console.log('👀 Starting enhanced URL monitoring...');
         console.log('📍 Original URL:', originalUrl);
 
         window.isWaitingForUrlChange = true;
         let checkCount = 0;
-        const maxChecks = window.commentConfig.urlChangeTimeout / 500;
+        const maxChecks = (window.commentConfig?.urlChangeTimeout || 30000) / 500;
+
+        // ⬇️ UPDATE BOT STATE
+        if (typeof window.setBotState === 'function') {
+            window.setBotState({
+                lastActivity: new Date().toISOString()
+            });
+        }
 
         const checkInterval = setInterval(() => {
             checkCount++;
@@ -127,7 +102,7 @@
             console.log(`🔍 Check ${checkCount}/${maxChecks}: ${currentUrl}`);
 
             // Check ERROR first
-            const errorDetected = window.detectCommentError();
+            const errorDetected = window.detectCommentError ? window.detectCommentError() : { error: false };
             if (errorDetected.error) {
                 console.log('❌ Error detected:', errorDetected.reason);
                 clearInterval(checkInterval);
@@ -138,11 +113,20 @@
             }
 
             // Then check SUCCESS
-            if (window.hasUrlChanged(originalUrl, currentUrl) || window.detectCommentSuccess().success) {
+            const successDetected = window.detectCommentSuccess ? window.detectCommentSuccess() : { success: false };
+            if (window.hasUrlChanged(originalUrl, currentUrl) || successDetected.success) {
                 console.log('✅ Success detected!');
                 clearInterval(checkInterval);
                 clearTimeout(window.urlChangeTimer);
                 window.isWaitingForUrlChange = false;
+                
+                // ⬇️ UPDATE BOT STATE
+                if (typeof window.setBotState === 'function') {
+                    window.setBotState({
+                        lastActivity: new Date().toISOString()
+                    });
+                }
+                
                 onSuccess(currentUrl);
                 return;
             }
@@ -157,7 +141,41 @@
             clearInterval(checkInterval);
             window.isWaitingForUrlChange = false;
             onTimeout();
-        }, window.commentConfig.urlChangeTimeout);
+        }, window.commentConfig?.urlChangeTimeout || 30000);
+    };
+    
+    // ⬇️ TAMBAHKAN FUNCTION UNTUK CHECK URL CHANGE
+    window.hasUrlChanged = function(originalUrl, currentUrl) {
+        if (!originalUrl || !currentUrl) return false;
+        
+        try {
+            const originalObj = new URL(originalUrl);
+            const currentObj = new URL(currentUrl);
+            
+            // Check if domain changed
+            if (originalObj.hostname !== currentObj.hostname) {
+                return true;
+            }
+            
+            // Check if path changed significantly
+            if (originalObj.pathname !== currentObj.pathname) {
+                return true;
+            }
+            
+            // Check for success indicators in URL
+            if (currentObj.hash.includes('#comment-') || 
+                currentObj.search.includes('comment=') ||
+                currentObj.search.includes('submitted=') ||
+                currentObj.search.includes('success=')) {
+                return true;
+            }
+            
+            return false;
+        } catch (e) {
+            console.error('Error checking URL change:', e);
+            // Fallback to simple string comparison
+            return originalUrl !== currentUrl;
+        }
     };
     
     console.log('✅ Enhanced Navigation and Retry helper loaded');
