@@ -75,52 +75,53 @@
             window.startUrlChangeMonitoring(
                 window.originalUrl,
                 // onSuccess callback
-                (newUrl) => {
+                (finalUrl) => {
                     console.log('✅ Comment submission successful!');
+                    console.log('Original URL:', window.originalUrl);
+                    console.log('Final URL:', finalUrl);
+            
                     window.removeWaitingMessage();
-                    
-                    const cleanOriginalUrl = window.originalUrl.split('#')[0];
-                    window.markUrlAsCompleted(cleanOriginalUrl, 'Comment submitted successfully');
-                    
-                    // Log success
-                    window.logMessage('success', 'Comment submitted successfully', {
-                        originalUrl: window.originalUrl,
-                        newUrl: newUrl
-                    });
-                    
-                    // Show success with enhanced message
-                    window.showSuccessMessage('Comment submitted successfully!');
-                    
-                    // Update statistics
-                    window.updateSubmissionStats('success');
-                    
-                    // Auto navigate if enabled
-                    if (window.commentConfig?.autoNavigate) {
-                        const delay = window.commentConfig?.navigationDelay || 3000;
+
+                    // SIMPAN DENGAN FORMAT YANG SESUAI (hash jika ada, clean jika tidak)
+                    window.markUrlAsCompleted(
+                        window.originalUrl, 
+                        finalUrl,  // ← PASS FINAL URL UNTUK ANALISIS
+                        'Comment submitted successfully'
+                    );
+            
+                    // Tentukan pesan berdasarkan jenis URL yang disimpan
+                    let successMessage = 'Comment submitted successfully!';
+                    if (finalUrl.includes('#comment-')) {
+                        successMessage += ' (Comment hash detected)';
+                    } else if (finalUrl.includes('comment=') || finalUrl.includes('submitted=')) {
+                        successMessage += ' (Comment parameter detected)';
+                    }
+            
+                    window.showSuccessMessage(successMessage);
+
+                    if (window.commentConfig.autoNavigate) {
                         setTimeout(() => {
                             window.navigateToNextUrl();
-                        }, delay);
+                        }, 3000);
                     }
                 },
                 // onError callback
                 (errorUrl, errorReason) => {
                     console.log('❌ Comment submission error:', errorReason);
+                    console.log('Error URL:', errorUrl);
+            
                     window.removeWaitingMessage();
-                    
-                    // Log error
-                    window.logMessage('error', 'Comment submission error', {
-                        originalUrl: window.originalUrl,
-                        errorUrl: errorUrl,
-                        errorReason: errorReason
-                    });
-                    
-                    // Update statistics
-                    window.updateSubmissionStats('error', errorReason);
-                    
-                    // Handle retry logic
-                    if (window.commentConfig?.retryOnError) {
+
+                    if (window.commentConfig.retryOnError) {
                         window.handleRetry(window.originalUrl, errorReason);
                     } else {
+                        // Simpan sebagai completed dengan alasan error
+                        window.markUrlAsCompleted(
+                            window.originalUrl,
+                            errorUrl,
+                            `Error: ${errorReason}`
+                        );
+                
                         window.showErrorMessage(`Comment submission failed: ${errorReason}`);
                         setTimeout(() => {
                             window.navigateToNextUrl();
