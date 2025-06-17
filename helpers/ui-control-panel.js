@@ -1,4 +1,4 @@
-// UI Control Panel Helper - Clean Version
+// UI Control Panel Helper - Fixed Version
 (function() {
     'use strict';
     
@@ -89,7 +89,8 @@
                         <div style="margin-bottom: 4px;">📍 URL ${currentIndex + 1}/${totalUrls}</div>
                         <div style="margin-bottom: 4px;">🔄 Submit: ${window.submitAttempted ? '✅ Yes' : '❌ No'}</div>
                         <div style="margin-bottom: 4px;">⏳ Waiting: ${window.isWaitingForUrlChange ? '✅ Yes' : '❌ No'}</div>
-                        <div>🔁 Retries: ${window.retryCount || 0}</div>
+                        <div style="margin-bottom: 4px;">🔁 Retries: ${window.retryCount || 0}</div>
+                        <div style="margin-bottom: 4px;">⏸️ Paused: ${window.botPaused ? '✅ Yes' : '❌ No'}</div>
                     </div>
                 </div>
 
@@ -101,37 +102,119 @@
                     </div>
                 </div>
 
-                <!-- Control Buttons -->
+                <!-- Control Buttons Section -->
                 <div style="padding: 15px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                        <button id="pauseBtn" style="background: #FF9800; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.2s;">
-                            ⏸️ Pause
+                    <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">🎛️ Bot Controls</div>
+                    
+                    <!-- Primary Controls -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <button id="pauseBtn" style="
+                            background: ${window.botPaused ? '#4CAF50' : '#FF9800'}; 
+                            color: white; 
+                            border: none; 
+                            padding: 10px; 
+                            border-radius: 8px; 
+                            cursor: pointer; 
+                            font-size: 11px; 
+                            font-weight: bold;
+                            flex: 1;
+                            transition: all 0.2s;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                        ">
+                            ${window.botPaused ? '▶️ Resume' : '⏸️ Pause'}
                         </button>
-                        <button id="skipBtn" style="background: #2196F3; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.2s;">
-                            ⏭️ Skip
+                        <button id="skipBtn" style="
+                            background: #2196F3; 
+                            color: white; 
+                            border: none; 
+                            padding: 10px; 
+                            border-radius: 8px; 
+                            cursor: pointer; 
+                            font-size: 11px; 
+                            font-weight: bold;
+                            flex: 1;
+                            transition: all 0.2s;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                        ">
+                            ⏭️ Skip URL
                         </button>
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                        <button id="testPopupBtn" style="background: #9C27B0; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.2s;">
+                    <!-- Popup Controls -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <button id="testPopupBtn" style="
+                            background: #9C27B0; 
+                            color: white; 
+                            border: none; 
+                            padding: 8px; 
+                            border-radius: 6px; 
+                            cursor: pointer; 
+                            font-size: 10px;
+                            flex: 1;
+                            transition: all 0.2s;
+                        ">
                             🚪 Test Popup
                         </button>
-                        <button id="closePopupBtn" style="background: #E91E63; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.2s;">
+                        <button id="closePopupBtn" style="
+                            background: #E91E63; 
+                            color: white; 
+                            border: none; 
+                            padding: 8px; 
+                            border-radius: 6px; 
+                            cursor: pointer; 
+                            font-size: 10px;
+                            flex: 1;
+                            transition: all 0.2s;
+                        ">
                             ❌ Close Popup
                         </button>
                     </div>
                     
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                        <button id="checkboxBtn" style="background: #607D8B; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.2s;">
+                    <!-- Testing Controls -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                        <button id="checkboxBtn" style="
+                            background: #607D8B; 
+                            color: white; 
+                            border: none; 
+                            padding: 8px; 
+                            border-radius: 6px; 
+                            cursor: pointer; 
+                            font-size: 10px;
+                            flex: 1;
+                            transition: all 0.2s;
+                        ">
                             📋 Test Checkbox
                         </button>
-                        <button id="debugBtn" style="background: #795548; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; transition: all 0.2s;">
-                            🔍 Debug
+                        <button id="debugBtn" style="
+                            background: #795548; 
+                            color: white; 
+                            border: none; 
+                            padding: 8px; 
+                            border-radius: 6px; 
+                            cursor: pointer; 
+                            font-size: 10px;
+                            flex: 1;
+                            transition: all 0.2s;
+                        ">
+                            🔍 Debug Info
                         </button>
                     </div>
                     
-                    <button id="resetBtn" style="background: #f44336; color: white; border: none; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 11px; width: 100%; transition: all 0.2s;">
-                        🔄 Reset All
+                    <!-- Reset Button -->
+                    <button id="resetBtn" style="
+                        background: linear-gradient(45deg, #f44336, #d32f2f); 
+                        color: white; 
+                        border: none; 
+                        padding: 12px; 
+                        border-radius: 8px; 
+                        cursor: pointer; 
+                        font-size: 11px; 
+                        font-weight: bold;
+                        width: 100%; 
+                        transition: all 0.2s;
+                        box-shadow: 0 3px 8px rgba(244,67,54,0.3);
+                    ">
+                        🔄 Reset All Progress
                     </button>
                 </div>
             </div>
@@ -141,7 +224,7 @@
         window.attachPanelEvents();
         window.startPanelAutoUpdate();
         
-        console.log('✅ Control panel created');
+        console.log('✅ Control panel created with all buttons');
     };
 
     // Attach event listeners to panel buttons
@@ -175,33 +258,91 @@
             }
         });
 
-        // Pause/Resume
+        // Pause/Resume Bot
         document.getElementById('pauseBtn')?.addEventListener('click', () => {
             const btn = document.getElementById('pauseBtn');
+            
             if (window.botPaused) {
+                // Resume bot
                 window.botPaused = false;
                 btn.textContent = '⏸️ Pause';
                 btn.style.background = '#FF9800';
-                window.addLogEntry('▶️ Bot resumed');
+                window.addLogEntry('▶️ Bot resumed - continuing process');
+                
+                // Show resume message
+                if (typeof window.showSuccessMessage === 'function') {
+                    window.showSuccessMessage('Bot resumed successfully!');
+                }
+                
+                // Continue bot process if needed
+                if (typeof window.continueBot === 'function') {
+                    setTimeout(() => {
+                        window.continueBot();
+                    }, 1000);
+                }
+                
             } else {
+                // Pause bot
                 window.botPaused = true;
                 btn.textContent = '▶️ Resume';
                 btn.style.background = '#4CAF50';
-                window.addLogEntry('⏸️ Bot paused');
+                window.addLogEntry('⏸️ Bot paused - all processes stopped');
+                
+                // Show pause message
+                if (typeof window.showRetryMessage === 'function') {
+                    window.showRetryMessage('Bot paused. Click Resume to continue.');
+                }
+                
+                // Clear any running timers
+                if (window.urlChangeTimer) {
+                    clearTimeout(window.urlChangeTimer);
+                    window.urlChangeTimer = null;
+                }
             }
+            
+            // Update panel to reflect new state
+            setTimeout(() => {
+                window.updateControlPanel();
+            }, 500);
         });
 
         // Skip current URL
         document.getElementById('skipBtn')?.addEventListener('click', () => {
-            if (confirm('Skip current URL?')) {
+            if (confirm('Skip current URL and move to next?')) {
                 const currentUrl = window.location.href.split('#')[0];
                 window.addLogEntry('⏭️ Manually skipped current URL');
+                
+                // Show skip message
+                if (typeof window.showRetryMessage === 'function') {
+                    window.showRetryMessage('Skipping current URL...');
+                }
+                
+                // Mark as completed with skip reason
                 if (typeof window.markUrlAsCompleted === 'function') {
                     window.markUrlAsCompleted(currentUrl, 'Manually skipped');
                 }
-                if (typeof window.navigateToNextUrl === 'function') {
-                    window.navigateToNextUrl();
+                
+                // Update stats as failed
+                if (typeof window.updateCommentStats === 'function') {
+                    window.updateCommentStats('failed');
                 }
+                
+                // Navigate to next URL
+                setTimeout(() => {
+                    if (typeof window.navigateToNextUrl === 'function') {
+                        window.navigateToNextUrl();
+                    } else {
+                        // Fallback navigation
+                        const completedUrls = window.getCompletedUrls ? window.getCompletedUrls() : [];
+                        const nextIndex = completedUrls.length;
+                        
+                        if (window.targetUrls && nextIndex < window.targetUrls.length) {
+                            window.location.href = window.targetUrls[nextIndex];
+                        } else {
+                            window.addLogEntry('✅ All URLs completed after skip');
+                        }
+                    }
+                }, 1500);
             }
         });
 
@@ -225,6 +366,7 @@
                 window.addLogEntry(`🔍 Found ${result.length} popup elements`);
             } else {
                 window.addLogEntry('❌ testPopupDetection function not available');
+                alert('❌ Popup detection function not available');
             }
         });
 
@@ -234,16 +376,43 @@
             if (typeof window.closePopup === 'function') {
                 const closed = window.closePopup();
                 window.addLogEntry(closed ? '✅ Popup closed successfully' : '❌ No popup found to close');
+                
+                if (closed) {
+                    if (typeof window.showSuccessMessage === 'function') {
+                        window.showSuccessMessage('Popup closed successfully!');
+                    }
+                } else {
+                    if (typeof window.showErrorMessage === 'function') {
+                        window.showErrorMessage('No popup found to close');
+                    }
+                }
             } else {
                 window.addLogEntry('❌ closePopup function not available');
+                alert('❌ Close popup function not available');
             }
         });
 
         // Reset all progress
         document.getElementById('resetBtn')?.addEventListener('click', () => {
-            if (confirm('Reset all progress? This will clear all data and restart from the first URL.')) {
+            if (confirm('⚠️ RESET ALL PROGRESS?\n\nThis will:\n• Clear all completed URLs\n• Reset statistics\n• Restart from first URL\n\nAre you sure?')) {
                 window.resetAllProgress();
             }
+        });
+
+        // Add hover effects to buttons
+        const buttons = document.querySelectorAll('#backlinkBotPanel button');
+        buttons.forEach(button => {
+            if (button.id === 'minimizeBtn' || button.id === 'closeBtn') return;
+            
+            button.addEventListener('mouseenter', () => {
+                button.style.transform = 'translateY(-1px)';
+                button.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+            });
+            
+            button.addEventListener('mouseleave', () => {
+                button.style.transform = 'translateY(0)';
+                button.style.boxShadow = button.id === 'resetBtn' ? '0 3px 8px rgba(244,67,54,0.3)' : '0 2px 5px rgba(0,0,0,0.2)';
+            });
         });
     };
 
@@ -269,7 +438,7 @@
         const entries = logContainer.querySelectorAll('.log-entry');
         if (entries.length > 8) {
             for (let i = 8; i < entries.length; i++) {
-                                entries[i].remove();
+                entries[i].remove();
             }
         }
         
@@ -321,7 +490,9 @@
             
             // Update control panel if visible
             if (document.getElementById('backlinkBotPanel')) {
-                window.updateControlPanel();
+                setTimeout(() => {
+                    window.updateControlPanel();
+                }, 500);
             }
             
             console.log(`📊 Stats updated: ${type}`, stats);
@@ -366,12 +537,15 @@
         
         window.panelUpdateInterval = setInterval(() => {
             if (document.getElementById('backlinkBotPanel')) {
-                window.updateControlPanel();
+                // Only update if not paused to avoid interference
+                if (!window.botPaused) {
+                    window.updateControlPanel();
+                }
             } else {
                 clearInterval(window.panelUpdateInterval);
                 window.panelUpdateInterval = null;
             }
-        }, 10000); // Update every 10 seconds
+        }, 15000); // Update every 15 seconds
     };
 
     // Enhanced test checkbox handling
@@ -395,6 +569,18 @@
                     totalCheckboxes += checkboxes[category].length;
                     console.log(`  ${category}: ${checkboxes[category].length} checkboxes`);
                     testResults.push(`Form ${index + 1} - ${category}: ${checkboxes[category].length}`);
+                    
+                    // Highlight checkboxes for testing
+                    checkboxes[category].forEach(checkbox => {
+                        checkbox.style.outline = '2px solid #2196F3';
+                        checkbox.style.outlineOffset = '2px';
+                        setTimeout(() => {
+                            if (checkbox.style) {
+                                checkbox.style.outline = '';
+                                checkbox.style.outlineOffset = '';
+                            }
+                        }, 3000);
+                    });
                 }
             }
             
@@ -418,6 +604,7 @@
 📋 Detailed Results:
 ${testResults.length > 0 ? testResults.join('\n') : 'No checkboxes found'}
 
+Checkboxes are highlighted in blue for 3 seconds.
 Check console for detailed results.`;
 
         alert(testResult);
@@ -711,6 +898,11 @@ ${completedUrls.length > 0 ? completedUrls.map((url, index) =>
             
             window.addLogEntry('🔄 All progress reset - restarting from first URL');
             
+            // Show reset message
+            if (typeof window.showSuccessMessage === 'function') {
+                window.showSuccessMessage('All progress reset! Redirecting to first URL...');
+            }
+            
             // Navigate to first URL if available
             if (window.targetUrls && window.targetUrls.length > 0) {
                 setTimeout(() => {
@@ -724,6 +916,47 @@ ${completedUrls.length > 0 ? completedUrls.map((url, index) =>
             console.error('Error resetting progress:', e);
             window.addLogEntry('❌ Error resetting progress: ' + e.message);
             alert('❌ Error resetting progress: ' + e.message);
+        }
+    };
+
+    // Continue bot function (for resume functionality)
+    window.continueBot = function() {
+        if (window.botPaused) {
+            console.log('Bot is paused, not continuing');
+            return;
+        }
+        
+        window.addLogEntry('🔄 Continuing bot process...');
+        
+        // Check if we're on a target URL and should process
+        if (typeof window.isTargetUrl === 'function' && window.isTargetUrl()) {
+            if (typeof window.hasAlreadyCommented === 'function' && !window.hasAlreadyCommented()) {
+                window.addLogEntry('🎯 Resuming comment process on target URL');
+                
+                // Try to fill and submit form
+                setTimeout(() => {
+                    if (typeof window.fillWordPressForm === 'function') {
+                        const wpSuccess = window.fillWordPressForm();
+                        if (!wpSuccess && typeof window.tryGenericFormFilling === 'function') {
+                            window.tryGenericFormFilling();
+                        }
+                    }
+                }, 1000);
+            } else {
+                window.addLogEntry('✅ URL already processed, moving to next');
+                if (typeof window.navigateToNextUrl === 'function') {
+                    setTimeout(() => {
+                        window.navigateToNextUrl();
+                    }, 2000);
+                }
+            }
+        } else {
+            window.addLogEntry('ℹ️ Not a target URL, checking navigation');
+            if (typeof window.navigateToNextUrl === 'function') {
+                setTimeout(() => {
+                    window.navigateToNextUrl();
+                }, 2000);
+            }
         }
     };
 
@@ -830,15 +1063,151 @@ ${completedUrls.length > 0 ? completedUrls.map((url, index) =>
         header.style.userSelect = 'none';
     };
 
+    // Enhanced panel visibility management
+    window.togglePanelVisibility = function(show = true) {
+        const panel = document.getElementById('backlinkBotPanel');
+        if (panel) {
+            panel.style.display = show ? 'block' : 'none';
+            if (show) {
+                window.addLogEntry('👁️ Control panel shown');
+            } else {
+                window.addLogEntry('🙈 Control panel hidden');
+            }
+        }
+    };
+
+    // Keyboard shortcuts for panel control
+    window.setupPanelKeyboardShortcuts = function() {
+        document.addEventListener('keydown', (e) => {
+            // Ctrl + Shift + P = Toggle panel visibility
+            if (e.ctrlKey && e.shiftKey && e.key === 'P') {
+                e.preventDefault();
+                const panel = document.getElementById('backlinkBotPanel');
+                if (panel) {
+                    const isVisible = panel.style.display !== 'none';
+                    window.togglePanelVisibility(!isVisible);
+                }
+            }
+            
+            // Ctrl + Shift + R = Reset all progress
+            if (e.ctrlKey && e.shiftKey && e.key === 'R') {
+                e.preventDefault();
+                if (confirm('⚠️ Reset all progress with keyboard shortcut?')) {
+                    window.resetAllProgress();
+                }
+            }
+            
+            // Ctrl + Shift + D = Show debug modal
+            if (e.ctrlKey && e.shiftKey && e.key === 'D') {
+                e.preventDefault();
+                window.showDebugModal();
+            }
+            
+            // Ctrl + Shift + Space = Pause/Resume bot
+            if (e.ctrlKey && e.shiftKey && e.code === 'Space') {
+                e.preventDefault();
+                const pauseBtn = document.getElementById('pauseBtn');
+                if (pauseBtn) {
+                    pauseBtn.click();
+                }
+            }
+        });
+        
+        console.log('⌨️ Keyboard shortcuts enabled:');
+        console.log('   Ctrl+Shift+P = Toggle panel');
+        console.log('   Ctrl+Shift+R = Reset progress');
+        console.log('   Ctrl+Shift+D = Debug modal');
+        console.log('   Ctrl+Shift+Space = Pause/Resume');
+    };
+
+    // Panel state persistence
+    window.savePanelState = function() {
+        try {
+            const panel = document.getElementById('backlinkBotPanel');
+            if (panel) {
+                const content = document.getElementById('panelContent');
+                const state = {
+                    minimized: content && content.style.display === 'none',
+                    position: {
+                        transform: panel.style.transform,
+                        top: panel.style.top,
+                        left: panel.style.left,
+                        right: panel.style.right
+                    }
+                };
+                GM_setValue('panelState', JSON.stringify(state));
+            }
+        } catch (e) {
+            console.log('Could not save panel state:', e);
+        }
+    };
+
+    window.loadPanelState = function() {
+        try {
+            const savedState = GM_getValue('panelState', null);
+            if (savedState) {
+                const state = JSON.parse(savedState);
+                const panel = document.getElementById('backlinkBotPanel');
+                const content = document.getElementById('panelContent');
+                const minimizeBtn = document.getElementById('minimizeBtn');
+                
+                if (panel && state.position) {
+                    if (state.position.transform) {
+                        panel.style.transform = state.position.transform;
+                        panel.style.position = 'fixed';
+                        panel.style.top = state.position.top || '20px';
+                        panel.style.left = state.position.left || '20px';
+                        panel.style.right = 'auto';
+                    }
+                }
+                
+                if (state.minimized && content && minimizeBtn) {
+                    content.style.display = 'none';
+                    minimizeBtn.textContent = '+';
+                    minimizeBtn.style.background = '#4CAF50';
+                }
+            }
+        } catch (e) {
+            console.log('Could not load panel state:', e);
+        }
+    };
+
+    // Auto-save panel state on changes
+    window.setupPanelStatePersistence = function() {
+        // Save state when minimizing/maximizing
+        const observer = new MutationObserver(() => {
+            window.savePanelState();
+        });
+        
+        const panel = document.getElementById('backlinkBotPanel');
+        if (panel) {
+            observer.observe(panel, {
+                attributes: true,
+                attributeFilter: ['style'],
+                subtree: true
+            });
+        }
+        
+        // Save state before page unload
+        window.addEventListener('beforeunload', () => {
+            window.savePanelState();
+        });
+    };
+
     // Auto-initialize when script loads
     window.initializeControlPanel();
     
-    // Make panel draggable after creation
+    // Setup additional features after initialization
     setTimeout(() => {
         window.makeControlPanelDraggable();
+        window.setupPanelKeyboardShortcuts();
+        window.loadPanelState();
+        window.setupPanelStatePersistence();
     }, 1500);
     
-    console.log('✅ Enhanced UI Control Panel helper loaded');
+    console.log('✅ Enhanced UI Control Panel helper loaded with full functionality');
+    console.log('🎛️ Features: Pause/Resume, Skip, Debug, Popup Control, Checkbox Test, Reset');
+    console.log('⌨️ Keyboard shortcuts available (see console for details)');
+    
 })();
-
 
