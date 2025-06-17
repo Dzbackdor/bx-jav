@@ -38,9 +38,13 @@
             GM_setValue('completedUrls', urlArray);
             console.log('✅ Set Completed URLs:', urlArray.length, 'URLs');
             
-            // Log message for debugging
+            // Log message for debugging (with safety check)
             if (typeof window.logMessage === 'function') {
-                window.logMessage('storage', 'Updated completed URLs', { count: urlArray.length });
+                try {
+                    window.logMessage('storage', 'Updated completed URLs', { count: urlArray.length });
+                } catch (e) {
+                    console.log('📝 Updated completed URLs:', urlArray.length);
+                }
             }
             
             return urlArray;
@@ -79,21 +83,19 @@
         }
     };
 
-    // MISSING FUNCTION - ADDED HERE
+    // ⬇️ TAMBAHKAN FUNCTION YANG MISSING INI
     window.resetRetryCount = function(url) {
         try {
             const retries = GM_getValue('retryCount', {});
             const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
             
-            if (retries[cleanUrl] !== undefined) {
+            if (retries[cleanUrl]) {
                 delete retries[cleanUrl];
                 GM_setValue('retryCount', retries);
                 console.log(`🔄 Reset retry count for: ${cleanUrl}`);
-                return true;
-            } else {
-                console.log(`ℹ️ No retry count found for: ${cleanUrl}`);
-                return true;
             }
+            
+            return true;
         } catch (e) {
             console.error('Error resetting retry count:', e);
             return false;
@@ -106,25 +108,31 @@
         
         // Jika finalUrl ada dan berbeda dari originalUrl, analisis perubahan
         if (finalUrl && finalUrl !== originalUrl) {
-            const finalUrlObj = new URL(finalUrl);
-            const originalUrlObj = new URL(originalUrl);
-            
-            // Jika ada hash comment di final URL, simpan URL dengan hash
-            if (finalUrlObj.hash && finalUrlObj.hash.includes('#comment-')) {
-                urlToStore = finalUrl;
-                console.log(`Storing URL with comment hash: ${urlToStore}`);
-            }
-            // Jika ada parameter comment di final URL, simpan URL dengan parameter
-            else if (finalUrlObj.searchParams.has('comment') || 
-                     finalUrlObj.search.includes('comment=') ||
-                     finalUrlObj.search.includes('submitted=')) {
-                urlToStore = finalUrl;
-                console.log(`Storing URL with comment parameters: ${urlToStore}`);
-            }
-            // Jika tidak ada indikator comment, simpan URL asli (clean)
-            else {
+            try {
+                const finalUrlObj = new URL(finalUrl);
+                const originalUrlObj = new URL(originalUrl);
+                
+                // Jika ada hash comment di final URL, simpan URL dengan hash
+                if (finalUrlObj.hash && finalUrlObj.hash.includes('#comment-')) {
+                    urlToStore = finalUrl;
+                    console.log(`Storing URL with comment hash: ${urlToStore}`);
+                }
+                // Jika ada parameter comment di final URL, simpan URL dengan parameter
+                else if (finalUrlObj.searchParams.has('comment') || 
+                         finalUrlObj.search.includes('comment=') ||
+                         finalUrlObj.search.includes('submitted=')) {
+                    urlToStore = finalUrl;
+                    console.log(`Storing URL with comment parameters: ${urlToStore}`);
+                }
+                // Jika tidak ada indikator comment, simpan URL asli (clean)
+                else {
+                    urlToStore = originalUrl.split('#')[0].split('?')[0];
+                    console.log(`Storing clean original URL: ${urlToStore}`);
+                }
+            } catch (e) {
+                // Jika URL parsing gagal, gunakan clean URL
                 urlToStore = originalUrl.split('#')[0].split('?')[0];
-                console.log(`Storing clean original URL: ${urlToStore}`);
+                console.log(`URL parsing failed, using clean URL: ${urlToStore}`);
             }
         } else {
             // Jika tidak ada finalUrl, simpan URL asli (clean)
@@ -146,14 +154,18 @@
             window.setCompletedUrls(completedUrls);
             console.log(`✅ Marked as completed: ${urlToStore} (${reason})`);
             
-            // Log detail untuk debugging
+            // Log detail untuk debugging (with safety check)
             if (typeof window.logMessage === 'function') {
-                window.logMessage('success', 'URL marked as completed', {
-                    originalUrl: originalUrl,
-                    finalUrl: finalUrl,
-                    storedUrl: urlToStore,
-                    reason: reason
-                });
+                try {
+                    window.logMessage('success', 'URL marked as completed', {
+                        originalUrl: originalUrl,
+                        finalUrl: finalUrl,
+                        storedUrl: urlToStore,
+                        reason: reason
+                    });
+                } catch (e) {
+                    console.log('📝 URL marked as completed:', urlToStore);
+                }
             }
         } else {
             console.log(`URL already completed: ${cleanOriginal}`);
@@ -201,11 +213,17 @@
         });
     };
     
+    // Clean URL utility (PINDAHKAN KE ATAS AGAR BISA DIGUNAKAN)
+    window.cleanUrl = function(url) {
+        if (!url) return '';
+        return url.split('#')[0].split('?')[0].trim();
+    };
+    
     // New: URL completion details
     window.setUrlCompletionDetails = function(url, details) {
         try {
             const completionDetails = GM_getValue('completionDetails', {});
-            const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
+            const cleanUrl = window.cleanUrl(url);
             
             completionDetails[cleanUrl] = {
                 ...details,
@@ -223,7 +241,7 @@
     window.getUrlCompletionDetails = function(url) {
         try {
             const completionDetails = GM_getValue('completionDetails', {});
-            const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
+            const cleanUrl = window.cleanUrl(url);
             return completionDetails[cleanUrl] || null;
         } catch (e) {
             console.error('Error getting completion details:', e);
@@ -268,8 +286,10 @@
             return false;
         }
     };
+
+    // ⬇️ TAMBAHKAN SEMUA FUNCTION YANG MISSING
     
-    // New: Session management
+    // Session management
     window.createSession = function() {
         try {
             const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
@@ -328,12 +348,12 @@
         }
     };
     
-    // New: Statistics and analytics
+    // Statistics and analytics
     window.getStatistics = function() {
         try {
             const completedUrls = window.getCompletedUrls();
             const retryData = GM_getValue('retryCount', {});
-                        const sessionHistory = GM_getValue('sessionHistory', []);
+            const sessionHistory = GM_getValue('sessionHistory', []);
             const currentSession = window.getCurrentSession();
             
             const totalRetries = Object.values(retryData).reduce((sum, count) => sum + count, 0);
@@ -366,7 +386,7 @@
         }
     };
     
-    // New: Data export/import
+    // Data export/import
     window.exportData = function() {
         try {
             const data = {
@@ -426,13 +446,7 @@
         }
     };
     
-    // New: Clean URL utility
-    window.cleanUrl = function(url) {
-        if (!url) return '';
-        return url.split('#')[0].split('?')[0].trim();
-    };
-    
-    // New: Storage cleanup
+    // Storage cleanup
     window.cleanupStorage = function() {
         try {
             // Clean up old retry counts (remove entries with 0 retries)
@@ -468,7 +482,7 @@
         }
     };
     
-    // New: Reset functions
+    // Reset functions
     window.resetAllProgress = function() {
         try {
             // End current session
@@ -546,69 +560,8 @@
             return false;
         }
     };
-
-    // ADDITIONAL FUNCTIONS - Added for better retry management
-    window.resetSingleRetryCount = function(url) {
-        return window.resetRetryCount(url);
-    };
-
-    window.resetRetryCountsForUrls = function(urls) {
-        try {
-            if (!Array.isArray(urls)) {
-                console.error('resetRetryCountsForUrls: urls must be an array');
-                return false;
-            }
-
-            const retries = GM_getValue('retryCount', {});
-            let resetCount = 0;
-
-            urls.forEach(url => {
-                const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
-                if (retries[cleanUrl] !== undefined) {
-                    delete retries[cleanUrl];
-                    resetCount++;
-                }
-            });
-
-            GM_setValue('retryCount', retries);
-            console.log(`🔄 Reset retry counts for ${resetCount} URLs`);
-            return true;
-        } catch (e) {
-            console.error('Error resetting retry counts for URLs:', e);
-            return false;
-        }
-    };
-
-    // ADDITIONAL: Get all retry counts for debugging
-    window.getAllRetryCounts = function() {
-        try {
-            const retryCount = GM_getValue('retryCount', {});
-            console.log('📊 All retry counts:', retryCount);
-            return retryCount;
-        } catch (e) {
-            console.error('Error getting all retry counts:', e);
-            return {};
-        }
-    };
-
-    // ADDITIONAL: Force reset specific URL retry
-    window.forceResetRetryCount = function(url) {
-        try {
-            const retries = GM_getValue('retryCount', {});
-            const cleanUrl = window.cleanUrl ? window.cleanUrl(url) : url.split('#')[0].split('?')[0];
-            
-            // Force delete regardless of existence
-            delete retries[cleanUrl];
-            GM_setValue('retryCount', retries);
-            console.log(`🔄 Force reset retry count for: ${cleanUrl}`);
-            return true;
-        } catch (e) {
-            console.error('Error force resetting retry count:', e);
-            return false;
-        }
-    };
     
-    // New: Backup and restore
+    // Backup and restore
     window.createBackup = function() {
         try {
             const backup = {
@@ -700,7 +653,7 @@
         }
     };
     
-    // New: Storage health check
+    // Storage health check
     window.checkStorageHealth = function() {
         try {
             const health = {
@@ -737,7 +690,11 @@
             
             // Check for orphaned data
             const orphanedRetries = Object.keys(retryCount).filter(url => 
-                !completedUrls.includes(url) && retryCount[url] === 0
+                !completedUrls.some(completedUrl => {
+                    const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
+                    const cleanRetry = url.split('#')[0].split('?')[0];
+                    return cleanCompleted === cleanRetry;
+                }) && retryCount[url] === 0
             );
             
             if (orphanedRetries.length > 10) {
@@ -766,7 +723,7 @@
         } catch (e) {
             console.error('Error during storage health check:', e);
             return {
-                                status: 'error',
+                status: 'error',
                 issues: ['Health check failed: ' + e.message],
                 recommendations: ['Check console for errors'],
                 storageSize: 0,
@@ -775,7 +732,7 @@
         }
     };
     
-    // New: Advanced URL management
+    // ⬇️ PERBAIKI FUNCTION getUrlProgress() - INI YANG PENTING
     window.getUrlProgress = function() {
         try {
             if (!window.targetUrls || window.targetUrls.length === 0) {
@@ -792,10 +749,9 @@
             
             window.targetUrls.forEach((url, index) => {
                 const cleanUrl = window.cleanUrl(url);
-                const isCompleted = completedUrls.some(completedUrl => {
-                    const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
-                    return cleanCompleted === cleanUrl;
-                });
+                
+                // ⬇️ PERBAIKI LOGIC CHECKING - GUNAKAN isUrlCompleted()
+                const isCompleted = window.isUrlCompleted(url);
                 const retries = retryCount[cleanUrl] || 0;
                 const details = completionDetails[cleanUrl];
                 
@@ -804,13 +760,12 @@
                     originalUrl: url,
                     cleanUrl: cleanUrl,
                     retries: retries,
-                    details: details,
-                    isCompleted: isCompleted
+                    details: details
                 };
                 
                 if (isCompleted) {
                     processed.push(urlInfo);
-                } else if (retries >= window.commentConfig?.maxRetries || retries >= 3) {
+                } else if (retries >= (window.commentConfig?.maxRetries || 3)) {
                     failed.push(urlInfo);
                 } else {
                     pending.push(urlInfo);
@@ -824,6 +779,7 @@
         }
     };
     
+    // ⬇️ PERBAIKI FUNCTION getFailedUrls()
     window.getFailedUrls = function() {
         try {
             const retryCount = GM_getValue('retryCount', {});
@@ -831,12 +787,14 @@
             const maxRetries = window.commentConfig?.maxRetries || 3;
             
             return Object.keys(retryCount).filter(url => {
+                const retries = retryCount[url] || 0;
                 const isCompleted = completedUrls.some(completedUrl => {
                     const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
-                    const cleanUrl = url.split('#')[0].split('?')[0];
-                    return cleanCompleted === cleanUrl;
+                    const cleanRetry = url.split('#')[0].split('?')[0];
+                    return cleanCompleted === cleanRetry;
                 });
-                return retryCount[url] >= maxRetries && !isCompleted;
+                
+                return retries >= maxRetries && !isCompleted;
             });
         } catch (e) {
             console.error('Error getting failed URLs:', e);
@@ -874,171 +832,208 @@
             return false;
         }
     };
-
-    // ADDITIONAL: Get pending URLs (not completed and not failed)
-    window.getPendingUrls = function() {
-        try {
-            if (!window.targetUrls || window.targetUrls.length === 0) {
-                return [];
-            }
-
-            const completedUrls = window.getCompletedUrls();
-            const retryCount = GM_getValue('retryCount', {});
-            const maxRetries = window.commentConfig?.maxRetries || 3;
-
-            return window.targetUrls.filter(url => {
-                const cleanUrl = window.cleanUrl(url);
-                const isCompleted = completedUrls.some(completedUrl => {
-                    const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
-                    return cleanCompleted === cleanUrl;
-                });
-                const retries = retryCount[cleanUrl] || 0;
-                
-                return !isCompleted && retries < maxRetries;
-            });
-        } catch (e) {
-            console.error('Error getting pending URLs:', e);
-            return [];
-        }
-    };
-
-    // ADDITIONAL: Get next URL to process
-    window.getNextUrlToProcess = function() {
+    
+    // ⬇️ TAMBAHKAN FUNCTION UNTUK DEBUGGING URL NAVIGATION
+    window.debugUrlNavigation = function() {
         try {
             const currentIndex = window.getCurrentUrlIndex();
-            const pendingUrls = window.getPendingUrls();
+            const completedUrls = window.getCompletedUrls();
+            const retryCount = GM_getValue('retryCount', {});
+            const targetUrls = window.targetUrls || [];
             
-            if (pendingUrls.length === 0) {
-                return null;
+            console.log('🔍 URL Navigation Debug Info:');
+            console.log('Current Index:', currentIndex);
+            console.log('Total Target URLs:', targetUrls.length);
+            console.log('Completed URLs:', completedUrls.length);
+            console.log('Current URL:', window.location.href);
+            
+            if (targetUrls.length > 0) {
+                console.log('Current Target URL:', targetUrls[currentIndex]);
+                console.log('Next Target URL:', targetUrls[currentIndex + 1] || 'None (end of list)');
             }
-
-            // Find next URL from current index
-            for (let i = currentIndex; i < window.targetUrls.length; i++) {
-                const url = window.targetUrls[i];
-                if (pendingUrls.includes(url)) {
-                    return {
-                        url: url,
-                        index: i,
-                        cleanUrl: window.cleanUrl(url)
-                    };
-                }
+            
+            // Check if current URL is completed
+            const currentUrl = targetUrls[currentIndex];
+            if (currentUrl) {
+                const isCompleted = window.isUrlCompleted(currentUrl);
+                const retries = window.getRetryCount(currentUrl);
+                console.log('Current URL completed:', isCompleted);
+                console.log('Current URL retries:', retries);
             }
-
-            // If no URL found from current index, start from beginning
-            for (let i = 0; i < currentIndex; i++) {
-                const url = window.targetUrls[i];
-                if (pendingUrls.includes(url)) {
-                    return {
-                        url: url,
-                        index: i,
-                        cleanUrl: window.cleanUrl(url)
-                    };
-                }
+            
+            // Show next few URLs
+            console.log('Next 5 URLs:');
+            for (let i = currentIndex + 1; i < Math.min(currentIndex + 6, targetUrls.length); i++) {
+                const url = targetUrls[i];
+                const isCompleted = window.isUrlCompleted(url);
+                const retries = window.getRetryCount(url);
+                console.log(`  ${i}: ${url} (completed: ${isCompleted}, retries: ${retries})`);
             }
-
-            return null;
+            
+            return {
+                currentIndex,
+                totalUrls: targetUrls.length,
+                completedCount: completedUrls.length,
+                currentUrl: currentUrl,
+                nextUrl: targetUrls[currentIndex + 1] || null,
+                canNavigate: currentIndex + 1 < targetUrls.length
+            };
         } catch (e) {
-            console.error('Error getting next URL to process:', e);
+            console.error('Error in debug URL navigation:', e);
             return null;
         }
     };
-
-    // ADDITIONAL: Progress summary
-    window.getProgressSummary = function() {
+    
+    // ⬇️ TAMBAHKAN FUNCTION UNTUK FORCE NAVIGATION
+    window.forceNavigateToNext = function() {
         try {
-            const progress = window.getUrlProgress();
-            const statistics = window.getStatistics();
-            const currentSession = window.getCurrentSession();
+            console.log('🚀 Force navigating to next URL...');
             
-            return {
-                total: window.targetUrls ? window.targetUrls.length : 0,
-                processed: progress.processed.length,
-                pending: progress.pending.length,
-                failed: progress.failed.length,
-                successRate: statistics.successRate,
-                totalRetries: statistics.totalRetries,
+            const debugInfo = window.debugUrlNavigation();
+            if (!debugInfo) {
+                console.error('❌ Cannot get debug info for navigation');
+                return false;
+            }
+            
+            if (!debugInfo.canNavigate) {
+                console.log('🎉 No more URLs to navigate to - all completed!');
+                if (typeof window.showCompletionMessage === 'function') {
+                    window.showCompletionMessage();
+                }
+                return false;
+            }
+            
+            // Force set next index
+            const nextIndex = debugInfo.currentIndex + 1;
+            window.setCurrentUrlIndex(nextIndex);
+            
+            // Clear any blocking states
+            window.submitAttempted = false;
+            window.isWaitingForUrlChange = false;
+            
+            // Clear timers
+            if (window.urlChangeTimer) {
+                clearTimeout(window.urlChangeTimer);
+                window.urlChangeTimer = null;
+            }
+            
+            const nextUrl = debugInfo.nextUrl;
+            console.log(`🔄 Force navigating to URL ${nextIndex + 1}/${debugInfo.totalUrls}: ${nextUrl}`);
+            
+            // Navigate with delay
+            setTimeout(() => {
+                window.location.href = nextUrl;
+            }, 1000);
+            
+            return true;
+        } catch (e) {
+            console.error('Error in force navigation:', e);
+            return false;
+        }
+    };
+    
+    // ⬇️ TAMBAHKAN FUNCTION UNTUK SKIP CURRENT URL
+    window.skipCurrentUrl = function(reason = 'Manually skipped') {
+        try {
+            const currentIndex = window.getCurrentUrlIndex();
+            const targetUrls = window.targetUrls || [];
+            
+            if (currentIndex >= targetUrls.length) {
+                console.log('🎉 No current URL to skip - all completed!');
+                return false;
+            }
+            
+            const currentUrl = targetUrls[currentIndex];
+            console.log(`⏭️ Skipping current URL: ${currentUrl}`);
+            
+            // Mark as completed with skip reason
+            window.markUrlAsCompleted(currentUrl, currentUrl, reason);
+            
+            // Navigate to next
+            setTimeout(() => {
+                window.forceNavigateToNext();
+            }, 1000);
+            
+            return true;
+        } catch (e) {
+            console.error('Error skipping current URL:', e);
+            return false;
+        }
+    };
+    
+    // ⬇️ TAMBAHKAN FUNCTION UNTUK CHECK NAVIGATION STATE
+    window.checkNavigationState = function() {
+        try {
+            const state = {
+                submitAttempted: window.submitAttempted || false,
+                isWaitingForUrlChange: window.isWaitingForUrlChange || false,
+                hasUrlChangeTimer: !!window.urlChangeTimer,
                 currentIndex: window.getCurrentUrlIndex(),
-                sessionId: currentSession ? currentSession.id : null,
-                sessionStarted: currentSession ? currentSession.startedAt : null,
-                lastUpdate: new Date().toISOString()
+                totalUrls: window.targetUrls ? window.targetUrls.length : 0,
+                currentUrl: window.location.href,
+                botState: window.getBotState()
             };
+            
+            console.log('🔍 Navigation State:', state);
+            
+            // Check if bot is stuck
+            const isStuck = state.isWaitingForUrlChange && state.hasUrlChangeTimer;
+            if (isStuck) {
+                console.warn('⚠️ Bot might be stuck in URL change waiting state');
+                console.log('💡 You can use window.forceNavigateToNext() to force navigation');
+            }
+            
+            return state;
         } catch (e) {
-            console.error('Error getting progress summary:', e);
-            return {
-                total: 0,
-                processed: 0,
-                pending: 0,
-                failed: 0,
-                successRate: 0,
-                totalRetries: 0,
-                currentIndex: 0,
-                sessionId: null,
-                sessionStarted: null,
-                lastUpdate: new Date().toISOString()
-            };
+            console.error('Error checking navigation state:', e);
+            return null;
         }
     };
-
-    // ADDITIONAL: Validate storage integrity
-    window.validateStorageIntegrity = function() {
+    
+    // ⬇️ TAMBAHKAN AUTO-RECOVERY MECHANISM
+    window.autoRecoveryCheck = function() {
         try {
-            const issues = [];
-            const fixes = [];
-
-            // Check completed URLs
-            const completedUrls = window.getCompletedUrls();
-            if (!Array.isArray(completedUrls)) {
-                issues.push('Completed URLs is not an array');
-                fixes.push(() => window.setCompletedUrls([]));
-            }
-
-            // Check retry counts
-            const retryCount = GM_getValue('retryCount', {});
-            if (typeof retryCount !== 'object' || retryCount === null) {
-                issues.push('Retry count is not an object');
-                fixes.push(() => GM_setValue('retryCount', {}));
-            }
-
-            // Check current URL index
-            const currentIndex = window.getCurrentUrlIndex();
-            if (isNaN(currentIndex) || currentIndex < 0) {
-                issues.push('Current URL index is invalid');
-                fixes.push(() => window.setCurrentUrlIndex(0));
-            }
-
-            // Check if current index is beyond target URLs
-            if (window.targetUrls && currentIndex >= window.targetUrls.length) {
-                issues.push('Current URL index is beyond target URLs length');
-                fixes.push(() => window.setCurrentUrlIndex(0));
-            }
-
-            // Auto-fix if requested
-            if (issues.length > 0) {
-                console.warn('🔧 Storage integrity issues found:', issues);
+            const state = window.checkNavigationState();
+            if (!state) return false;
+            
+            // Check if bot has been waiting too long
+            const botState = state.botState;
+            if (botState.lastActivity) {
+                const lastActivity = new Date(botState.lastActivity);
+                const now = new Date();
+                const timeDiff = now - lastActivity;
                 
-                // Apply fixes
-                fixes.forEach((fix, index) => {
-                    try {
-                        fix();
-                        console.log(`✅ Fixed: ${issues[index]}`);
-                    } catch (e) {
-                        console.error(`❌ Failed to fix: ${issues[index]}`, e);
+                // If no activity for more than 5 minutes, try recovery
+                if (timeDiff > 5 * 60 * 1000) {
+                    console.warn('⚠️ Bot inactive for more than 5 minutes, attempting recovery...');
+                    
+                    // Clear stuck states
+                    window.submitAttempted = false;
+                    window.isWaitingForUrlChange = false;
+                    
+                    if (window.urlChangeTimer) {
+                        clearTimeout(window.urlChangeTimer);
+                        window.urlChangeTimer = null;
                     }
-                });
+                    
+                    // Try to navigate to next URL
+                    setTimeout(() => {
+                        if (typeof window.navigateToNextUrl === 'function') {
+                            window.navigateToNextUrl();
+                        } else {
+                            window.forceNavigateToNext();
+                        }
+                    }, 2000);
+                    
+                    console.log('🔄 Auto-recovery attempted');
+                    return true;
+                }
             }
-
-            return {
-                isValid: issues.length === 0,
-                issues: issues,
-                fixesApplied: fixes.length
-            };
+            
+            return false;
         } catch (e) {
-            console.error('Error validating storage integrity:', e);
-            return {
-                isValid: false,
-                issues: ['Validation failed: ' + e.message],
-                fixesApplied: 0
-            };
+            console.error('Error in auto-recovery check:', e);
+            return false;
         }
     };
     
@@ -1048,25 +1043,34 @@
         if (health.status !== 'healthy') {
             console.warn('⚠️ Storage health issues detected:', health.issues);
         }
-
-        // Also validate storage integrity
-        const integrity = window.validateStorageIntegrity();
-        if (!integrity.isValid) {
-            console.warn('⚠️ Storage integrity issues detected and fixed:', integrity.issues);
-        }
+        
+        // Also check navigation state
+        window.checkNavigationState();
     }, 1000);
     
     // Auto cleanup every hour
     setInterval(() => {
         window.cleanupStorage();
     }, 60 * 60 * 1000);
-
-    // Auto integrity check every 30 minutes
-    setInterval(() => {
-        window.validateStorageIntegrity();
-    }, 30 * 60 * 1000);
     
-    console.log('✅ Enhanced Storage Management helper loaded with retry functions');
+    // Auto recovery check every 2 minutes
+    setInterval(() => {
+        window.autoRecoveryCheck();
+    }, 2 * 60 * 1000);
+    
+    console.log('✅ Enhanced Storage Management helper loaded');
+    
+    // ⬇️ EXPOSE DEBUG FUNCTIONS TO CONSOLE
+    console.log('🔧 Debug functions available:');
+    console.log('  - window.debugUrlNavigation() - Show navigation debug info');
+    console.log('  - window.forceNavigateToNext() - Force navigate to next URL');
+    console.log('  - window.skipCurrentUrl() - Skip current URL');
+    console.log('  - window.checkNavigationState() - Check current navigation state');
+    console.log('  - window.autoRecoveryCheck() - Run auto-recovery check');
+    console.log('  - window.resetAllProgress() - Reset all progress');
+    console.log('  - window.checkStorageHealth() - Check storage health');
     
 })();
+
+
 
