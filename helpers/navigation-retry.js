@@ -6,150 +6,160 @@
     window.navigateToNextUrl = function() {
         const currentIndex = window.getCurrentUrlIndex();
         const nextIndex = currentIndex + 1;
-        
+
         if (nextIndex >= window.targetUrls.length) {
             console.log('🎉 All URLs completed!');
             window.showCompletionMessage();
             return;
         }
-        
+
         window.setCurrentUrlIndex(nextIndex);
         const nextUrl = window.targetUrls[nextIndex];
-        
+
         console.log(`🔄 Navigating to next URL (${nextIndex + 1}/${window.targetUrls.length}): ${nextUrl}`);
-        
-        // Reset retry count untuk URL baru
-        window.resetRetryCount(nextUrl);
-        
+
         setTimeout(() => {
             window.location.href = nextUrl;
         }, window.commentConfig.delayBetweenUrls);
     };
     
-    // Handle retry logic - DIPERBAIKI
+    // Enhanced retry logic with better error handling
     window.handleRetry = function(originalTargetUrl, errorReason) {
         const currentRetries = window.getRetryCount(originalTargetUrl);
-        
-        console.log(`📊 Current retries for ${originalTargetUrl}: ${currentRetries}/${window.commentConfig.maxRetries}`);
-        
+
         if (currentRetries < window.commentConfig.maxRetries) {
             const newRetryCount = currentRetries + 1;
             window.setRetryCount(originalTargetUrl, newRetryCount);
-            
+
             console.log(`🔄 Retrying URL (${newRetryCount}/${window.commentConfig.maxRetries}): ${originalTargetUrl}`);
-            console.log(`📝 Retry reason: ${errorReason}`);
+            console.log(`🔄 Retry reason: ${errorReason}`);
             
-            window.showRetryMessage(`Retry ${newRetryCount}/${window.commentConfig.maxRetries}: ${errorReason}`);
-            
+            // Clean error message for display
+            const displayReason = window.cleanErrorMessage ? window.cleanErrorMessage(errorReason) : errorReason;
+            window.showRetryMessage(`Retry ${newRetryCount}/${window.commentConfig.maxRetries}: ${displayReason}`);
+
             setTimeout(() => {
                 window.submitAttempted = false;
                 window.isWaitingForUrlChange = false;
-                console.log('🔄 Reloading page for retry...');
                 window.location.href = originalTargetUrl;
             }, 3000);
-            
+
         } else {
-            console.log(`❌ Max retries (${window.commentConfig.maxRetries}) reached for: ${originalTargetUrl}`);
-            console.log(`📝 Final error reason: ${errorReason}`);
+            console.log(`❌ Max retries reached for: ${originalTargetUrl}`);
+            console.log(`❌ Final error: ${errorReason}`);
             
-            window.showErrorMessage(`Max retries reached. Skipping URL: ${errorReason}`);
+            // Clean error message for user display
+            const userFriendlyError = window.getUserFriendlyError ? 
+                window.getUserFriendlyError(errorReason) : 
+                (errorReason.includes('wp-comments-post.php') ? 
+                    'WordPress comment submission failed' : 
+                    errorReason);
             
-            // Mark URL sebagai completed dengan status failed
-            window.markUrlAsCompleted(originalTargetUrl, `Failed after ${window.commentConfig.maxRetries} retries: ${errorReason}`);
+            window.showErrorMessage(`Max retries reached. Skipping URL: ${userFriendlyError}`);
+
+            // Store detailed error for debugging
+            const failureReason = `Failed after ${window.commentConfig.maxRetries} retries: ${errorReason}`;
+            window.markUrlAsCompleted(originalTargetUrl, failureReason);
             
-            // PENTING: Reset retry count sebelum pindah ke URL berikutnya
-            window.resetRetryCount(originalTargetUrl);
-            
-            console.log('⏭️ Moving to next URL in 3 seconds...');
-            
+            // Reset retry count after marking as failed
+            if (typeof window.resetRetryCount === 'function') {
+                window.resetRetryCount(originalTargetUrl);
+                console.log(`🔄 Reset retry count for failed URL: ${originalTargetUrl}`);
+            }
+
             setTimeout(() => {
                 window.navigateToNextUrl();
-            }, 3000); // Kurangi delay dari 5000 ke 3000
+            }, 5000);
         }
     };
     
-    // Tambahkan fungsi untuk reset retry count
-    window.resetRetryCount = function(url) {
-        window.setRetryCount(url, 0);
-        console.log(`🔄 Reset retry count for: ${url}`);
+    // Helper function to clean error messages
+    window.cleanErrorMessage = function(errorMessage) {
+        if (!errorMessage) return 'Unknown error';
+        
+        // Clean up wp-comments-post.php errors
+        if (errorMessage.includes('wp-comments-post.php')) {
+            return 'WordPress comment error';
+        }
+        
+        // Clean up other common errors
+        if (errorMessage.includes('Unknown')) {
+            return errorMessage.replace(/Unknown\s+/gi, '');
+        }
+        
+        return errorMessage;
     };
     
-    // Enhanced URL monitoring - DIPERBAIKI
+    // Helper function for user-friendly error messages
+    window.getUserFriendlyError = function(errorMessage) {
+        if (!errorMessage) return 'Unknown error occurred';
+        
+        const errorMap = {
+            'wp-comments-post.php': 'Comment submission failed',
+            'timeout': 'Request timed out',
+            'network': 'Network connection error',
+            'permission': 'Permission denied',
+            'duplicate': 'Duplicate comment detected'
+        };
+        
+        for (const [key, friendlyMsg] of Object.entries(errorMap)) {
+            if (errorMessage.toLowerCase().includes(key)) {
+                return friendlyMsg;
+            }
+        }
+        
+        return window.cleanErrorMessage(errorMessage);
+    };
+    
+    // Enhanced URL monitoring (unchanged)
     window.startUrlChangeMonitoring = function(originalUrl, onSuccess, onError, onTimeout) {
         console.log('👀 Starting enhanced URL monitoring...');
         console.log('📍 Original URL:', originalUrl);
-        
+
         window.isWaitingForUrlChange = true;
         let checkCount = 0;
         const maxChecks = window.commentConfig.urlChangeTimeout / 500;
-        
+
         const checkInterval = setInterval(() => {
             checkCount++;
             const currentUrl = window.location.href;
-            
+
             console.log(`🔍 Check ${checkCount}/${maxChecks}: ${currentUrl}`);
-            
-            // PRIORITAS 1: Check ERROR first (termasuk wp-comments-post.php)
+
+            // Check ERROR first
             const errorDetected = window.detectCommentError();
             if (errorDetected.error) {
                 console.log('❌ Error detected:', errorDetected.reason);
-                console.log('🔍 Current URL when error detected:', currentUrl);
-                
                 clearInterval(checkInterval);
                 clearTimeout(window.urlChangeTimer);
                 window.isWaitingForUrlChange = false;
-                
-                // Pastikan onError dipanggil dengan originalUrl, bukan currentUrl
-                onError(originalUrl, errorDetected.reason);
+                onError(currentUrl, errorDetected.reason);
                 return;
             }
-            
-            // PRIORITAS 2: Check SUCCESS
-            const successDetected = window.detectCommentSuccess();
-            if (window.hasUrlChanged(originalUrl, currentUrl) || successDetected.success) {
+
+            // Then check SUCCESS
+            if (window.hasUrlChanged(originalUrl, currentUrl) || window.detectCommentSuccess().success) {
                 console.log('✅ Success detected!');
-                console.log('📍 Success URL:', currentUrl);
-                
                 clearInterval(checkInterval);
                 clearTimeout(window.urlChangeTimer);
                 window.isWaitingForUrlChange = false;
-                
                 onSuccess(currentUrl);
                 return;
             }
-            
-            // PRIORITAS 3: Check timeout
+
             if (checkCount >= maxChecks) {
-                console.log('⏰ Max checks reached, stopping interval');
                 clearInterval(checkInterval);
             }
         }, 500);
-        
-        // Timeout handler
+
         window.urlChangeTimer = setTimeout(() => {
-            console.log('⏰ URL change timeout reached');
-            console.log('📍 URL when timeout:', window.location.href);
-            
+            console.log('⏰ URL change timeout');
             clearInterval(checkInterval);
             window.isWaitingForUrlChange = false;
-            
             onTimeout();
         }, window.commentConfig.urlChangeTimeout);
     };
     
-    // Tambahkan fungsi helper untuk debugging
-    window.debugRetryStatus = function() {
-        console.log('🐛 DEBUG: Current retry status');
-        console.log('📊 Current URL index:', window.getCurrentUrlIndex());
-        console.log('📊 Total URLs:', window.targetUrls.length);
-        console.log('📊 Current URL:', window.location.href);
-        
-        if (window.targetUrls && window.targetUrls.length > 0) {
-            const currentIndex = window.getCurrentUrlIndex();
-            const currentTargetUrl = window.targetUrls[currentIndex];
-            console.log('📊 Target URL:', currentTargetUrl);
-            console.log('📊 Retry count for target URL:', window.getRetryCount(currentTargetUrl));
-        }
-    };
+    console.log('✅ Enhanced Navigation and Retry helper loaded');
     
 })();
