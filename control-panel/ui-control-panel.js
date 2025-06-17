@@ -26,6 +26,8 @@
             min-width: 280px;
             max-width: 350px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: move;
+            user-select: none;
         `;
 
         let statusColor = '#666';
@@ -73,8 +75,8 @@
         `;
 
         panel.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">
-                🤖 Auto Backlink Bot v4.0
+            <div id="panelHeader" style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px; cursor: move;">
+                🤖 Auto Backlink Bot v4.0 <span style="float: right; font-size: 10px; color: #888;">⋮⋮</span>
             </div>
 
             <div style="margin-bottom: 8px;">
@@ -131,6 +133,9 @@
         `;
 
         document.body.appendChild(panel);
+
+        // DRAG & DROP FUNCTIONALITY
+        window.makePanelDraggable(panel);
 
         // Event listeners
         document.getElementById('resetBtn').addEventListener('click', () => {
@@ -193,30 +198,103 @@
         });
     };
 
-    // FUNGSI DOWNLOAD RESULTS (SUCCESS & ERROR)
+    // FUNGSI DRAG & DROP
+    window.makePanelDraggable = function(panel) {
+        let isDragging = false;
+        let currentX;
+        let currentY;
+        let initialX;
+        let initialY;
+        let xOffset = 0;
+        let yOffset = 0;
+
+        const header = panel.querySelector('#panelHeader') || panel;
+
+        header.addEventListener('mousedown', dragStart);
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', dragEnd);
+
+        // Touch events untuk mobile
+        header.addEventListener('touchstart', dragStart);
+        document.addEventListener('touchmove', drag);
+        document.addEventListener('touchend', dragEnd);
+
+        function dragStart(e) {
+            if (e.target.tagName === 'BUTTON') return; // Jangan drag jika klik button
+
+            if (e.type === 'touchstart') {
+                initialX = e.touches[0].clientX - xOffset;
+                initialY = e.touches[0].clientY - yOffset;
+            } else {
+                initialX = e.clientX - xOffset;
+                initialY = e.clientY - yOffset;
+            }
+
+            if (e.target === header || header.contains(e.target)) {
+                isDragging = true;
+                panel.style.cursor = 'grabbing';
+            }
+        }
+
+        function drag(e) {
+            if (isDragging) {
+                e.preventDefault();
+
+                if (e.type === 'touchmove') {
+                    currentX = e.touches[0].clientX - initialX;
+                    currentY = e.touches[0].clientY - initialY;
+                } else {
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                }
+
+                xOffset = currentX;
+                yOffset = currentY;
+
+                // Batasi agar tidak keluar dari viewport
+                const rect = panel.getBoundingClientRect();
+                const maxX = window.innerWidth - rect.width;
+                const maxY = window.innerHeight - rect.height;
+
+                xOffset = Math.max(0, Math.min(xOffset, maxX));
+                yOffset = Math.max(0, Math.min(yOffset, maxY));
+
+                panel.style.transform = `translate(${xOffset}px, ${yOffset}px)`;
+            }
+        }
+
+        function dragEnd() {
+            if (isDragging) {
+                isDragging = false;
+                panel.style.cursor = 'move';
+            }
+        }
+    };
+
+    // FUNGSI DOWNLOAD RESULTS (SUCCESS & ERROR) - UPDATED
     window.downloadResults = function() {
         try {
-            const completedUrls = window.getCompletedUrls();
             const currentDate = new Date();
             const dateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
             const timeString = currentDate.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
             
-            // Pisahkan SUCCESS dan ERROR
-            const successUrls = [];
-            const errorUrls = [];
+            // Ambil URL dengan detail lengkap
+            const successUrls = window.getSuccessUrls();
+            const errorUrls = window.getErrorUrls();
             
-            completedUrls.forEach(url => {
-                if (url.includes('wp-comments-post.php')) {
-                    // ERROR: wp-comments-post.php
-                    errorUrls.push(url);
-                } else if (url.includes('#comment-')) {
-                    // SUCCESS: ada hash comment
-                    successUrls.push(url);
-                } else {
-                    // SUCCESS: tidak ada hash (dianggap berhasil)
-                    successUrls.push(url);
-                }
-            });
+            // Fallback: jika tidak ada data di storage baru, gunakan cara lama
+            if (successUrls.length === 0 && errorUrls.length === 0) {
+                const completedUrls = window.getCompletedUrls();
+                console.log('📥 Using fallback method for completed URLs');
+                
+                completedUrls.forEach(url => {
+                    if (url.includes('wp-comments-post.php')) {
+                        errorUrls.push(url);
+                    } else {
+                        successUrls.push(url);
+                    }
+                });
+            }
             
             // Buat konten file
             let content = '';
@@ -257,6 +335,8 @@
             window.URL.revokeObjectURL(url);
             
             console.log('📥 Results downloaded - Success:', successUrls.length, 'Error:', errorUrls.length);
+            console.log('📥 Success URLs:', successUrls);
+            console.log('📥 Error URLs:', errorUrls);
             
             // Show success message
             const successMsg = document.createElement('div');
@@ -302,6 +382,7 @@
     window.resetAllProgress = function() {
         GM_deleteValue('currentUrlIndex');
         GM_deleteValue('completedUrls');
+        GM_deleteValue('completedUrlsWithDetails'); // NEW: Reset storage baru juga
         GM_deleteValue('retryCount');
 
         window.submitAttempted = false;
@@ -400,6 +481,11 @@ Check console for detailed results.
             const errorDetected = window.detectCommentError();
             const urlChanged = window.hasUrlChanged(window.originalUrl, currentUrl);
 
+            // NEW: Ambil data dari storage baru
+            const successUrls = window.getSuccessUrls();
+            const errorUrls = window.getErrorUrls();
+            const completedUrlsWithDetails = window.getCompletedUrlsWithDetails();
+
             debugInfo = `
 🔍 AUTO BACKLINK BOT DEBUG v4.0
 ================================
@@ -438,6 +524,11 @@ Check console for detailed results.
 - Auto Check Terms: ${window.commentConfig.autoCheckTerms}
 - Auto Check Newsletter: ${window.commentConfig.autoCheckNewsletter}
 
+📊 Results Summary:
+- Success URLs: ${successUrls.length}
+- Error URLs: ${errorUrls.length}
+- Total Processed: ${completedUrlsWithDetails.length}
+
 🎯 Target URLs:
 ${window.targetUrls.map((url, index) => {
     const isCompleted = completedUrls.includes(url.split('#')[0].split('?')[0]);
@@ -446,8 +537,16 @@ ${window.targetUrls.map((url, index) => {
     return `${status} ${index + 1}. ${url}`;
 }).join('\n')}
 
-✅ Completed URLs:
-${completedUrls.length > 0 ? completedUrls.map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
+✅ Success URLs (with hash):
+${successUrls.length > 0 ? successUrls.map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
+
+❌ Error URLs:
+${errorUrls.length > 0 ? errorUrls.map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None'}
+
+📋 Detailed Results:
+${completedUrlsWithDetails.length > 0 ? completedUrlsWithDetails.map((item, index) => 
+    `${index + 1}. [${item.status.toUpperCase()}] ${item.fullUrl} (${item.reason})`
+).join('\n') : 'None'}
             `;
         } catch (e) {
             debugInfo = `Error generating debug info: ${e.message}`;
@@ -493,4 +592,5 @@ ${completedUrls.length > 0 ? completedUrls.map((url, index) => `${index + 1}. ${
     console.log('✅ UI Control Panel helper loaded');
     
 })();
+
 
