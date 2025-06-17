@@ -105,7 +105,7 @@
 
             ${checkboxStatus}
 
-            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px;">
                 <button id="resetBtn" style="background: #f44336; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     Reset
                 </button>
@@ -120,6 +120,12 @@
                 </button>
                 <button id="checkboxBtn" style="background: #009688; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     Test CB
+                </button>
+            </div>
+
+            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <button id="downloadBtn" style="background: #4CAF50; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                    📥 Download
                 </button>
             </div>
         `;
@@ -180,6 +186,76 @@
         document.getElementById('checkboxBtn').addEventListener('click', () => {
             window.testCheckboxHandling();
         });
+
+        // TOMBOL DOWNLOAD - HANYA URL YANG DISIMPAN
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            window.downloadCompletedUrls();
+        });
+    };
+
+    // FUNGSI DOWNLOAD SEDERHANA - HANYA URL
+    window.downloadCompletedUrls = function() {
+        try {
+            const completedUrls = window.getCompletedUrls();
+            const currentDate = new Date();
+            const dateString = currentDate.toISOString().split('T')[0]; // YYYY-MM-DD
+            const timeString = currentDate.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS
+            
+            // Buat konten file - hanya URL
+            let content = '';
+            
+            if (completedUrls.length > 0) {
+                completedUrls.forEach((url) => {
+                    content += url + '\n';
+                });
+            } else {
+                content = 'No completed URLs found.\n';
+            }
+            
+            // Buat dan download file
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `completed-urls-${dateString}-${timeString}.txt`;
+            
+            // Trigger download
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+            
+            console.log('📥 Completed URLs downloaded successfully');
+            
+            // Show success message
+            const successMsg = document.createElement('div');
+            successMsg.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #4CAF50;
+                color: white;
+                padding: 15px 25px;
+                border-radius: 8px;
+                z-index: 10002;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            `;
+            successMsg.innerHTML = `📥 ${completedUrls.length} URLs downloaded!`;
+            document.body.appendChild(successMsg);
+            
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.parentNode.removeChild(successMsg);
+                }
+            }, 3000);
+            
+        } catch (error) {
+            console.error('❌ Error downloading URLs:', error);
+            alert('Error saat mendownload file: ' + error.message);
+        }
     };
 
     // Update control panel
@@ -386,3 +462,4 @@ ${completedUrls.length > 0 ? completedUrls.map((url, index) => `${index + 1}. ${
     console.log('✅ UI Control Panel helper loaded');
     
 })();
+
