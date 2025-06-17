@@ -151,24 +151,15 @@
         return { processed, unprocessed };
     };
     
-    // Create control panel
+    // Enhanced control panel with better URL display
     window.createControlPanel = function() {
-        // Remove existing panel first
-        const existingPanel = document.getElementById('backlinkBotPanel');
-        if (existingPanel) existingPanel.remove();
-        
-        // Initialize bot state
-        window.initBotState();
-        
-        // Safe fallbacks untuk fungsi yang mungkin belum ada
-        const currentIndex = (typeof window.getCurrentUrlIndex === 'function') ? window.getCurrentUrlIndex() : 0;
-        const completedUrls = (typeof window.getCompletedUrls === 'function') ? window.getCompletedUrls() : [];
+        const currentIndex = window.getCurrentUrlIndex();
+        const completedUrlsDisplay = window.getCompletedUrlsDisplay();
+        const completedCount = completedUrlsDisplay.length;
         const currentUrl = window.location.href;
-        const isTarget = (typeof window.isTargetUrl === 'function') ? window.isTargetUrl() : false;
-        const isCompleted = (typeof window.hasAlreadyCommented === 'function') ? window.hasAlreadyCommented() : false;
-        const urlStatus = window.getUrlStatus();
-        const totalUrls = (window.targetUrls && window.targetUrls.length) ? window.targetUrls.length : 0;
-        
+        const isTarget = window.isTargetUrl();
+        const isCompleted = window.hasAlreadyCommented();
+
         const panel = document.createElement('div');
         panel.id = 'backlinkBotPanel';
         panel.style.cssText = `
@@ -182,94 +173,59 @@
             border-radius: 10px;
             font-family: Arial, sans-serif;
             font-size: 12px;
-            min-width: 320px;
-            max-width: 400px;
+            min-width: 280px;
+            max-width: 350px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         `;
-        
-        // Bot status
-        let botStatusColor = '#666';
-        let botStatusText = 'Stopped';
-        let botStatusIcon = '⏹️';
-        
-        if (window.botState.isActive) {
-            botStatusColor = '#4CAF50';
-            botStatusText = 'Running';
-            botStatusIcon = '🟢';
-        } else if (window.botState.isPaused) {
-            botStatusColor = '#FF9800';
-            botStatusText = 'Paused';
-            botStatusIcon = '⏸️';
-        }
-        
-        // Current URL status
-        let urlStatusColor = '#666';
-        let urlStatusText = 'Not Target URL';
-        let urlStatusIcon = '⚪';
-        
+
+        let statusColor = '#666';
+        let statusText = 'Not Target URL';
+
         if (currentUrl.includes('wp-comments-post.php')) {
-            urlStatusColor = '#f44336';
-            urlStatusText = 'ERROR: wp-comments-post.php';
-            urlStatusIcon = '❌';
+            statusColor = '#f44336';
+            statusText = 'ERROR: wp-comments-post.php';
         } else if (isTarget && isCompleted) {
-            urlStatusColor = '#4CAF50';
-            urlStatusText = 'Completed';
-            urlStatusIcon = '✅';
+            statusColor = '#4CAF50';
+            statusText = 'Completed';
         } else if (isTarget && window.submitAttempted) {
-            urlStatusColor = '#FF9800';
-            urlStatusText = 'Processing...';
-            urlStatusIcon = '⏳';
+            statusColor = '#FF9800';
+            statusText = 'Processing...';
         } else if (isTarget) {
-            urlStatusColor = '#2196F3';
-            urlStatusText = 'Ready to Comment';
-            urlStatusIcon = '🎯';
+            statusColor = '#2196F3';
+            statusText = 'Ready to Comment';
         }
-        
-        // Control buttons based on bot state
-        let controlButtons = '';
-        if (!window.botState.isRunning) {
-            controlButtons = `
-                <button id="startBtn" style="background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                    ▶️ Start Bot
-                </button>
+
+        // Enhanced completed URLs display
+        let completedUrlsHtml = '';
+        if (completedCount > 0) {
+            completedUrlsHtml = `
+                <div style="margin-bottom: 8px; font-size: 11px; color: #ccc; border-top: 1px solid #444; padding-top: 8px;">
+                    Processed URLs (${completedCount}):
+                </div>
             `;
-        } else if (window.botState.isPaused) {
-            controlButtons = `
-                <button id="resumeBtn" style="background: #4CAF50; color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                    ▶️ Resume
-                </button>
-                <button id="stopBtn" style="background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                    ⏹️ Stop
-                </button>
-            `;
-        } else {
-            controlButtons = `
-                <button id="pauseBtn" style="background: #FF9800; color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                    ⏸️ Pause
-                </button>
-                <button id="stopBtn" style="background: #f44336; color: white; border: none; padding: 8px 12px; border-radius: 3px; cursor: pointer; font-size: 11px; font-weight: bold;">
-                    ⏹️ Stop
-                </button>
-            `;
+            
+            completedUrlsDisplay.slice(-3).forEach(item => {
+                const shortUrl = item.url.length > 50 ? item.url.substring(0, 47) + '...' : item.url;
+                completedUrlsHtml += `
+                    <div style="font-size: 10px; color: #ccc; margin-bottom: 2px;">
+                        ${item.index}. ${shortUrl}
+                    </div>
+                `;
+            });
+            
+            if (completedCount > 3) {
+                completedUrlsHtml += `
+                    <div style="font-size: 10px; color: #666; margin-bottom: 4px;">
+                        ... and ${completedCount - 3} more
+                    </div>
+                `;
+            }
         }
-        
-        // URL Status Summary
-        const urlSummary = totalUrls > 0 ? `
-            <div style="margin-bottom: 8px; font-size: 11px; color: #ccc; border-top: 1px solid #444; padding-top: 8px;">
-                📊 URL Status Summary:
-            </div>
-            <div style="font-size: 10px; color: #4CAF50; margin-bottom: 2px;">
-                ✅ Processed: ${urlStatus.processed.length} URLs
-            </div>
-            <div style="font-size: 10px; color: #FF9800; margin-bottom: 8px;">
-                ⏳ Remaining: ${urlStatus.unprocessed.length} URLs
-            </div>
-        ` : '';
-        
+
         // Checkbox configuration status
-        const checkboxStatus = (window.commentConfig) ? `
+        const checkboxStatus = `
             <div style="margin-bottom: 8px; font-size: 11px; color: #ccc; border-top: 1px solid #444; padding-top: 8px;">
-                📋 Checkbox Settings:
+                Checkbox Settings:
             </div>
             <div style="font-size: 10px; color: #ccc; margin-bottom: 4px;">
                 ${window.commentConfig.handleCheckboxes ? '✅' : '❌'} Handle Checkboxes
@@ -286,59 +242,52 @@
             <div style="font-size: 10px; color: #ccc; margin-bottom: 8px;">
                 ${window.commentConfig.autoCheckNewsletter ? '✅' : '❌'} Auto Newsletter
             </div>
-        ` : '';
-        
+        `;
+
         panel.innerHTML = `
             <div style="font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 5px;">
-                🤖 Auto Backlink Bot v4.0
+                Auto Backlink Bot v4.0
             </div>
-            
+
             <div style="margin-bottom: 8px;">
-                <strong>Bot Status:</strong>
-                <span style="color: ${botStatusColor}; font-weight: bold;">${botStatusIcon} ${botStatusText}</span>
+                <strong>Status:</strong>
+                <span style="color: ${statusColor};">${statusText}</span>
             </div>
-            
+
             <div style="margin-bottom: 8px;">
-                <strong>URL Status:</strong>
-                <span style="color: ${urlStatusColor};">${urlStatusIcon} ${urlStatusText}</span>
+                <strong>Progress:</strong> ${completedCount}/${window.targetUrls.length} URLs
             </div>
-            
+
             <div style="margin-bottom: 8px;">
-                <strong>Progress:</strong> ${completedUrls.length}/${totalUrls} URLs
+                <strong>Current:</strong> ${currentIndex + 1}/${window.targetUrls.length}
             </div>
-            
-            <div style="margin-bottom: 8px;">
-                <strong>Current:</strong> ${currentIndex + 1}/${totalUrls}
-            </div>
-            
+
             ${currentUrl.includes('wp-comments-post.php') ? `
                 <div style="margin-bottom: 8px; color: #f44336; font-weight: bold;">
-                    ⚠️ ERROR DETECTED
+                    ERROR DETECTED
                 </div>
                 <div style="margin-bottom: 8px; font-size: 11px; color: #ffcdd2;">
                     wp-comments-post.php indicates form validation error
                 </div>
             ` : ''}
-            
-            ${urlSummary}
-            ${checkboxStatus}
-            
-            <div style="margin-bottom: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
-                ${controlButtons}
+
+            <div style="margin-bottom: 10px; font-size: 11px; color: #ccc;">
+                ${isTarget ? 'Target URL' : 'Non-target URL'}
             </div>
-            
+
+            ${completedUrlsHtml}
+
+            ${checkboxStatus}
+
             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                 <button id="resetBtn" style="background: #f44336; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     Reset
                 </button>
-                                <button id="retryBtn" style="background: #FF9800; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
+                <button id="retryBtn" style="background: #FF9800; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     Retry
                 </button>
                 <button id="skipBtn" style="background: #9E9E9E; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     Skip
-                </button>
-                <button id="urlListBtn" style="background: #3F51B5; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
-                    URL List
                 </button>
                 <button id="debugBtn" style="background: #673AB7; color: white; border: none; padding: 5px 8px; border-radius: 3px; cursor: pointer; font-size: 10px;">
                     Debug
@@ -348,7 +297,7 @@
                 </button>
             </div>
         `;
-        
+
         document.body.appendChild(panel);
         
         // Event listeners for control buttons
@@ -917,10 +866,10 @@ ${content.textContent}`;
     
     // Show debug modal
     window.showDebugModal = function() {
-        const completedUrls = (typeof window.getCompletedUrls === 'function') ? window.getCompletedUrls() : [];
-        const currentIndex = (typeof window.getCurrentUrlIndex === 'function') ? window.getCurrentUrlIndex() : 0;
+        const completedUrlsDisplay = window.getCompletedUrlsDisplay();
+        const currentIndex = window.getCurrentUrlIndex();
         const currentUrl = window.location.href;
-        
+
         const modal = document.createElement('div');
         modal.style.cssText = `
             position: fixed;
@@ -949,110 +898,58 @@ ${content.textContent}`;
         
         let debugInfo = '';
         try {
-            const successDetected = (typeof window.detectCommentSuccess === 'function') ? window.detectCommentSuccess() : {success: false, reason: 'Function not available'};
-            const errorDetected = (typeof window.detectCommentError === 'function') ? window.detectCommentError() : {error: false, reason: 'Function not available'};
-            const urlChanged = (typeof window.hasUrlChanged === 'function') ? window.hasUrlChanged(window.originalUrl, currentUrl) : false;
-            const isTargetUrl = (typeof window.isTargetUrl === 'function') ? window.isTargetUrl() : false;
-            const hasCommented = (typeof window.hasAlreadyCommented === 'function') ? window.hasAlreadyCommented() : false;
-            
+            const successDetected = window.detectCommentSuccess();
+            const errorDetected = window.detectCommentError();
+            const urlChanged = window.hasUrlChanged(window.originalUrl, currentUrl);
+
             debugInfo = `
-🔍 AUTO BACKLINK BOT DEBUG v4.0
+AUTO BACKLINK BOT DEBUG v4.0
 ================================
 
-📊 CURRENT STATUS:
+Current Status:
 - Current URL: ${currentUrl}
-- Original URL: ${window.originalUrl || 'Not set'}
+- Original URL: ${window.originalUrl}
 - Current Index: ${currentIndex}
-- Total Target URLs: ${window.targetUrls ? window.targetUrls.length : 'Not available'}
-- Completed Count: ${completedUrls.length}
-- Is Target URL: ${isTargetUrl}
-- Already Commented: ${hasCommented}
+- Total Target URLs: ${window.targetUrls.length}
+- Completed Count: ${completedUrlsDisplay.length}
+- Is Target URL: ${window.isTargetUrl()}
+- Already Commented: ${window.hasAlreadyCommented()}
 
-🤖 BOT STATE:
-- Bot Running: ${window.botState ? window.botState.isRunning : 'Unknown'}
-- Bot Paused: ${window.botState ? window.botState.isPaused : 'Unknown'}
-- Bot Active: ${window.botState ? window.botState.isActive : 'Unknown'}
-
-🔄 SUBMIT STATUS:
-- Submit Attempted: ${window.submitAttempted || false}
-- Waiting for URL Change: ${window.isWaitingForUrlChange || false}
+Submit Status:
+- Submit Attempted: ${window.submitAttempted}
+- Waiting for URL Change: ${window.isWaitingForUrlChange}
 - URL Change Timer Active: ${window.urlChangeTimer !== null}
-- Retry Count: ${window.retryCount || 0}
 
-🎯 URL ANALYSIS:
+URL Analysis:
 - Has Comment Hash: ${currentUrl.includes('#comment-')}
 - Has wp-comments-post.php: ${currentUrl.includes('wp-comments-post.php')}
 - URL Changed from Original: ${urlChanged}
-- Contains Success Indicators: ${currentUrl.includes('comment') || currentUrl.includes('success')}
 
-✅ SUCCESS DETECTION:
+Success Detection:
 - Success Detected: ${successDetected.success}
 - Success Reason: ${successDetected.reason || 'none'}
 
-❌ ERROR DETECTION:
+Error Detection:
 - Error Detected: ${errorDetected.error}
 - Error Reason: ${errorDetected.reason || 'none'}
 
-📋 CHECKBOX CONFIGURATION:
-- Handle Checkboxes: ${window.commentConfig ? window.commentConfig.handleCheckboxes : 'Config not loaded'}
-- Auto Check Consent: ${window.commentConfig ? window.commentConfig.autoCheckConsent : 'Config not loaded'}
-- Auto Check Privacy: ${window.commentConfig ? window.commentConfig.autoCheckPrivacy : 'Config not loaded'}
-- Auto Check Terms: ${window.commentConfig ? window.commentConfig.autoCheckTerms : 'Config not loaded'}
-- Auto Check Newsletter: ${window.commentConfig ? window.commentConfig.autoCheckNewsletter : 'Config not loaded'}
-
-💾 STORAGE STATUS:
-- GM Storage Available: ${typeof GM_getValue === 'function'}
-- Current Index Stored: ${typeof GM_getValue === 'function' ? GM_getValue('currentUrlIndex', 'Not set') : 'GM not available'}
-- Completed URLs Stored: ${typeof GM_getValue === 'function' ? (GM_getValue('completedUrls', '[]').length > 2 ? 'Yes' : 'Empty') : 'GM not available'}
-- Bot Running Stored: ${typeof GM_getValue === 'function' ? GM_getValue('botIsRunning', false) : 'GM not available'}
-
-🎯 TARGET URLS:
-${window.targetUrls ? window.targetUrls.map((url, index) => {
-    const isCompleted = completedUrls.some(completedUrl => {
-        const cleanUrl = url.split('#')[0].split('?')[0];
-        const cleanCompleted = completedUrl.split('#')[0].split('?')[0];
-        return cleanCompleted === cleanUrl;
-    });
+Target URLs:
+${window.targetUrls.map((url, index) => {
+    const isCompleted = window.isUrlCompleted(url);
     const isCurrent = index === currentIndex;
-    const status = isCompleted ? '✅' : (isCurrent ? '👉' : '⏳');
+    const status = isCompleted ? 'COMPLETED' : (isCurrent ? 'CURRENT' : 'PENDING');
     return `${status} ${index + 1}. ${url}`;
-}).join('\n') : 'Target URLs not available'}
+}).join('\n')}
 
-✅ COMPLETED URLS:
-${completedUrls.length > 0 ? completedUrls.map((url, index) => `${index + 1}. ${url}`).join('\n') : 'None completed yet'}
-
-🔧 FORM ANALYSIS:
-${(() => {
-    const forms = document.querySelectorAll('form');
-    if (forms.length === 0) return 'No forms found on page';
-    
-    let formAnalysis = '';
-    forms.forEach((form, index) => {
-        const action = form.action || 'No action';
-        const method = form.method || 'GET';
-        const inputs = form.querySelectorAll('input, textarea, select').length;
-        const checkboxes = form.querySelectorAll('input[type="checkbox"]').length;
-        const submitBtns = form.querySelectorAll('input[type="submit"], button[type="submit"], button:not([type])').length;
-        
-        formAnalysis += `
-Form ${index + 1}:
-  - Action: ${action}
-  - Method: ${method}
-  - Total Inputs: ${inputs}
-  - Checkboxes: ${checkboxes}
-  - Submit Buttons: ${submitBtns}`;
-    });
-    return formAnalysis;
-})()}
-
-🌐 BROWSER INFO:
-- User Agent: ${navigator.userAgent}
-- Page Title: ${document.title}
-- Page Loaded: ${document.readyState}
-- Timestamp: ${new Date().toISOString()}
+Completed URLs (with stored format):
+${completedUrlsDisplay.length > 0 ? completedUrlsDisplay.map((item) => {
+    const typeLabel = item.type === 'hash' ? '[HASH]' : 
+                     item.type === 'parameter' ? '[PARAM]' : '[CLEAN]';
+    return `${typeLabel} ${item.index}. ${item.url}`;
+}).join('\n') : 'None'}
             `;
         } catch (e) {
-            debugInfo = `❌ Error generating debug info: ${e.message}\n\nStack trace:\n${e.stack}`;
+            debugInfo = `Error generating debug info: ${e.message}`;
         }
         
         content.innerHTML = `
