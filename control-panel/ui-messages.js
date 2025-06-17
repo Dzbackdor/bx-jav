@@ -265,12 +265,7 @@
 
     // Enhanced completion message with statistics
     window.showCompletionMessage = function() {
-        const completedUrls = (typeof window.getCompletedUrls === 'function') ? window.getCompletedUrls() : [];
-        const totalUrls = window.targetUrls ? window.targetUrls.length : 0;
-        const successRate = totalUrls > 0 ? Math.round((completedUrls.length / totalUrls) * 100) : 0;
-        
         const completionDiv = document.createElement('div');
-        completionDiv.id = 'completionMessage';
         completionDiv.style.cssText = `
             position: fixed;
             top: 50%;
@@ -285,76 +280,32 @@
             font-family: Arial, sans-serif;
             font-size: 18px;
             min-width: 400px;
-            box-shadow: 0 6px 30px rgba(0,0,0,0.4);
         `;
 
+        const completedUrlsDisplay = window.getCompletedUrlsDisplay();
+        const totalUrls = window.targetUrls.length;
+        
+        // Hitung statistik
+        const hashUrls = completedUrlsDisplay.filter(item => item.type === 'hash').length;
+        const paramUrls = completedUrlsDisplay.filter(item => item.type === 'parameter').length;
+        const cleanUrls = completedUrlsDisplay.filter(item => item.type === 'clean').length;
+
         completionDiv.innerHTML = `
-            <div style="margin-bottom: 20px; font-size: 24px;">🎉 Mission Completed!</div>
+            <div style="margin-bottom: 20px; font-size: 24px;">All URLs Completed!</div>
             <div style="font-size: 16px; margin-bottom: 15px;">
-                Successfully processed <strong>${completedUrls.length}</strong> out of <strong>${totalUrls}</strong> URLs
+                Successfully processed ${completedUrlsDisplay.length} out of ${totalUrls} URLs
             </div>
-            <div style="font-size: 14px; margin-bottom: 20px; opacity: 0.9;">
-                Success Rate: <strong>${successRate}%</strong>
+            <div style="font-size: 14px; margin-bottom: 15px;">
+                With comment hash: ${hashUrls}<br>
+                With parameters: ${paramUrls}<br>
+                Clean URLs: ${cleanUrls}
             </div>
-            <div style="font-size: 14px; opacity: 0.8; margin-bottom: 20px;">
-                Auto Backlink Bot v4.0 - Mission Accomplished!
-            </div>
-            <div style="display: flex; gap: 10px; justify-content: center;">
-                <button id="viewReportBtn" style="
-                    background: rgba(33, 150, 243, 0.8);
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 14px;
-                ">📊 View Report</button>
-                <button id="resetBotBtn" style="
-                    background: rgba(255, 152, 0, 0.8);
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 14px;
-                ">🔄 Reset Bot</button>
-                <button onclick="this.parentElement.parentElement.remove()" style="
-                    background: rgba(255,255,255,0.2);
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 14px;
-                ">Close</button>
+            <div style="font-size: 14px; opacity: 0.9;">
+                Auto Backlink Bot - Mission Accomplished!
             </div>
         `;
 
         document.body.appendChild(completionDiv);
-        
-        // Add event listeners
-        const viewReportBtn = document.getElementById('viewReportBtn');
-        if (viewReportBtn) {
-            viewReportBtn.addEventListener('click', () => {
-                if (typeof window.showUrlListModal === 'function') {
-                    window.showUrlListModal();
-                }
-            });
-        }
-        
-        const resetBotBtn = document.getElementById('resetBotBtn');
-        if (resetBotBtn) {
-            resetBotBtn.addEventListener('click', () => {
-                if (confirm('Reset bot and start over? This will clear all progress.')) {
-                    completionDiv.remove();
-                    if (typeof window.resetAllProgress === 'function') {
-                        window.resetAllProgress();
-                    }
-                }
-            });
-        }
-        
-        return completionDiv;
     };
     
     // New: Show bot status message
