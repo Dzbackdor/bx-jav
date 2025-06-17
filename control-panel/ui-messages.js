@@ -142,15 +142,24 @@
         }, 5000);
     };
 
+    // UPDATED: Show completion message with close button and actions
     window.showCompletionMessage = function() {
+        // Remove existing completion message if any
+        const existingMsg = document.getElementById('completionMessage');
+        if (existingMsg) {
+            existingMsg.remove();
+        }
+
+        const completedUrls = window.getCompletedUrls();
         const completionDiv = document.createElement('div');
+        completionDiv.id = 'completionMessage';
         completionDiv.style.cssText = `
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 10002;
-            background: rgba(76, 175, 80, 0.95);
+            z-index: 10003;
+            background: linear-gradient(135deg, #4CAF50, #45a049);
             color: white;
             padding: 30px;
             border-radius: 15px;
@@ -158,20 +167,156 @@
             font-family: Arial, sans-serif;
             font-size: 18px;
             min-width: 400px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 2px solid rgba(255,255,255,0.2);
         `;
 
-        const completedUrls = window.getCompletedUrls();
         completionDiv.innerHTML = `
-            <div style="margin-bottom: 20px; font-size: 24px;">🎉 All URLs Completed!</div>
-            <div style="font-size: 16px; margin-bottom: 15px;">
-                Successfully processed ${completedUrls.length} out of ${window.targetUrls.length} URLs
-            </div>
-            <div style="font-size: 14px; opacity: 0.9;">
-                Auto Backlink Bot - Mission Accomplished!
+            <div style="position: relative;">
+                <button id="closeCompletionBtn" style="
+                    position: absolute;
+                    top: -20px;
+                    right: -20px;
+                    background: rgba(255,255,255,0.2);
+                    color: white;
+                    border: none;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: 20px;
+                    font-weight: bold;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.3s ease;
+                    line-height: 1;
+                " onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='scale(1.1)'" 
+                   onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='scale(1)'">
+                    ×
+                </button>
+                
+                <div style="font-size: 48px; margin-bottom: 20px;">🎉</div>
+                
+                <div style="margin-bottom: 20px; font-size: 24px; font-weight: bold;">
+                    All URLs Completed!
+                </div>
+                
+                <div style="font-size: 16px; margin-bottom: 15px; opacity: 0.95;">
+                    Successfully processed ${completedUrls.length} out of ${window.targetUrls.length} URLs
+                </div>
+                
+                <div style="font-size: 14px; opacity: 0.9; margin-bottom: 25px; color: #FFD700; font-weight: bold;">
+                    Auto Backlink Bot - Mission Accomplished!
+                </div>
+                
+                <div style="display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;">
+                    <button id="downloadResultsBtn" style="
+                        background: rgba(255,255,255,0.2);
+                        color: white;
+                        border: 1px solid rgba(255,255,255,0.3);
+                        padding: 10px 18px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: bold;
+                        transition: all 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='translateY(-2px)'" 
+                       onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='translateY(0)'">
+                        📥 Download Results
+                    </button>
+                    
+                    <button id="resetBotBtn" style="
+                        background: rgba(255,255,255,0.2);
+                        color: white;
+                        border: 1px solid rgba(255,255,255,0.3);
+                        padding: 10px 18px;
+                        border-radius: 25px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: bold;
+                        transition: all 0.3s ease;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    " onmouseover="this.style.background='rgba(255,255,255,0.3)'; this.style.transform='translateY(-2px)'" 
+                       onmouseout="this.style.background='rgba(255,255,255,0.2)'; this.style.transform='translateY(0)'">
+                        🔄 Reset Bot
+                    </button>
+                </div>
+                
+                <div id="autoCloseInfo" style="
+                    font-size: 11px; 
+                    opacity: 0.7; 
+                    margin-top: 20px;
+                    display: none;
+                ">
+                    Auto-closing in <span id="countdown">10</span> seconds...
+                </div>
             </div>
         `;
 
         document.body.appendChild(completionDiv);
+
+        // Event listeners
+        document.getElementById('closeCompletionBtn').addEventListener('click', () => {
+            completionDiv.remove();
+            console.log('🎉 Completion message closed manually');
+        });
+
+        document.getElementById('downloadResultsBtn').addEventListener('click', () => {
+            if (typeof window.downloadResults === 'function') {
+                window.downloadResults();
+                console.log('📥 Download results triggered from completion message');
+            } else {
+                console.warn('⚠️ downloadResults function not available');
+                alert('Download function not available');
+            }
+        });
+
+        document.getElementById('resetBotBtn').addEventListener('click', () => {
+            if (confirm('🔄 Reset all progress and start over?\n\nThis will clear all completed URLs and restart from the beginning.')) {
+                if (typeof window.resetAllProgress === 'function') {
+                    window.resetAllProgress();
+                    console.log('🔄 Bot reset triggered from completion message');
+                } else {
+                    console.warn('⚠️ resetAllProgress function not available');
+                    alert('Reset function not available');
+                }
+                completionDiv.remove();
+            }
+        });
+
+        // Auto close after 30 seconds with countdown
+        setTimeout(() => {
+            const autoCloseInfo = document.getElementById('autoCloseInfo');
+            const countdownSpan = document.getElementById('countdown');
+            
+            if (autoCloseInfo && countdownSpan && document.getElementById('completionMessage')) {
+                autoCloseInfo.style.display = 'block';
+                
+                let countdown = 10;
+                const countdownInterval = setInterval(() => {
+                    if (countdownSpan && countdown > 0) {
+                        countdownSpan.textContent = countdown;
+                        countdown--;
+                    } else {
+                        clearInterval(countdownInterval);
+                        if (completionDiv.parentNode) {
+                            completionDiv.remove();
+                            console.log('🎉 Completion message auto-closed');
+                        }
+                    }
+                }, 1000);
+            }
+        }, 30000);
+
+        console.log('🎉 Completion message displayed with enhanced UI');
     };
+    
+    console.log('✅ UI Messages helper loaded');
     
 })();
