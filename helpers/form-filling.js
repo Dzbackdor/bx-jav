@@ -185,8 +185,10 @@
         if (!submitButton) {
             console.log('Submit button not found, trying form.submit()');
             setTimeout(() => {
-                // 🚪 PANGGIL closePopup sebelum submit
-                window.closePopup();
+                // 🚪 Close popup sebelum submit
+                if (window.commentConfig.handlePopups && typeof window.closePopup === 'function') {
+                    window.closePopup();
+                }
                 
                 // Delay sebentar lalu submit
                 setTimeout(() => {
@@ -203,8 +205,11 @@
         setTimeout(() => {
             console.log('🚀 Preparing to submit...');
             
-            // 🚪 PANGGIL closePopup sebelum submit
-            const popupClosed = window.closePopup();
+            // 🚪 Close popup sebelum submit
+            let popupClosed = false;
+            if (window.commentConfig.handlePopups && typeof window.closePopup === 'function') {
+                popupClosed = window.closePopup();
+            }
             
             // Delay berdasarkan apakah popup ditutup atau tidak
             const submitDelay = popupClosed ? 1500 : 500;
