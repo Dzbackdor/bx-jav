@@ -1,8 +1,11 @@
-// Form Filling Helper
+// Form Filling Helper - Enhanced but Compatible Version
 (function() {
     'use strict';
     
-    // Fill WordPress form
+    // Backup original functions for safety
+    const _originalAutoSubmit = window.autoSubmitForm;
+    
+    // Fill WordPress form (TIDAK DIUBAH - tetap sama)
     window.fillWordPressForm = function() {
         console.log('🔧 Filling WordPress form...');
 
@@ -69,7 +72,7 @@
         return true;
     };
     
-    // Try generic form filling
+    // Try generic form filling (TIDAK DIUBAH - tetap sama)
     window.tryGenericFormFilling = function() {
         console.log('🔍 Attempting generic form filling...');
 
@@ -100,7 +103,7 @@
         return false;
     };
     
-    // Fill generic form
+    // Fill generic form (TIDAK DIUBAH - tetap sama)
     window.fillGenericForm = function(form) {
         try {
             form.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -161,7 +164,7 @@
         }
     };
     
-    // Find submit button
+    // Find submit button (TIDAK DIUBAH - tetap sama)
     window.findSubmitButton = function(form) {
         for (let selector of window.submitSelectors) {
             const button = form.querySelector(selector);
@@ -173,7 +176,7 @@
         return null;
     };
     
-    // Auto submit form
+    // ✨ HANYA INI YANG DIPERBAIKI - Enhanced popup handling
     window.autoSubmitForm = function(form) {
         if (!window.commentConfig.autoSubmit) {
             console.log('Auto submit disabled');
@@ -185,15 +188,21 @@
         if (!submitButton) {
             console.log('Submit button not found, trying form.submit()');
             setTimeout(() => {
-                // 🚪 Close popup sebelum submit
-                if (window.commentConfig.handlePopups && typeof window.closePopup === 'function') {
-                    window.closePopup();
-                }
-                
-                // Delay sebentar lalu submit
-                setTimeout(() => {
-                    window.handleFormSubmission(form, null);
-                }, 1000);
+                // 🚪 Enhanced popup closing
+                window.handlePopupBeforeSubmit(() => {
+                    // Fallback jika handleFormSubmission tidak ada
+                    if (typeof window.handleFormSubmission === 'function') {
+                        window.handleFormSubmission(form, null);
+                    } else {
+                        // Gunakan metode lama
+                        try {
+                            form.submit();
+                            console.log('✅ Form submitted using fallback method');
+                        } catch (e) {
+                            console.error('❌ Form submission failed:', e);
+                        }
+                    }
+                });
             }, 1000);
             return true;
         }
@@ -205,23 +214,116 @@
         setTimeout(() => {
             console.log('🚀 Preparing to submit...');
             
-            // 🚪 Close popup sebelum submit
-            let popupClosed = false;
-            if (window.commentConfig.handlePopups && typeof window.closePopup === 'function') {
-                popupClosed = window.closePopup();
-            }
-            
-            // Delay berdasarkan apakah popup ditutup atau tidak
-            const submitDelay = popupClosed ? 1500 : 500;
-            
-            setTimeout(() => {
+            // 🚪 Enhanced popup closing with callback
+            window.handlePopupBeforeSubmit(() => {
                 console.log('🚀 Clicking submit button...');
-                window.handleFormSubmission(form, submitButton);
-            }, submitDelay);
+                
+                // Fallback jika handleFormSubmission tidak ada
+                if (typeof window.handleFormSubmission === 'function') {
+                    window.handleFormSubmission(form, submitButton);
+                } else {
+                    // Gunakan metode lama yang aman
+                    try {
+                        submitButton.click();
+                        console.log('✅ Submit button clicked using fallback method');
+                    } catch (e) {
+                        console.error('❌ Submit button click failed:', e);
+                    }
+                }
+            });
             
         }, 1000);
 
         return true;
     };
+    
+    // ✨ TAMBAHAN - Enhanced popup handling (safe fallback)
+    window.handlePopupBeforeSubmit = function(callback) {
+        // Jika tidak ada config popup handling, langsung callback
+        if (!window.commentConfig || !window.commentConfig.handlePopups) {
+            callback();
+            return;
+        }
+        
+        console.log('🚪 Handling popups before submit...');
+        
+        let popupClosed = false;
+        
+        // Method 1: Gunakan closePopup jika ada
+        if (typeof window.closePopup === 'function') {
+            try {
+                popupClosed = window.closePopup();
+                console.log('🚪 closePopup() result:', popupClosed);
+            } catch (e) {
+                console.log('⚠️ closePopup() error:', e);
+            }
+        }
+        
+        // Method 2: Fallback ESC key
+        if (!popupClosed) {
+            try {
+                console.log('🔄 Trying ESC key fallback...');
+                const escEvent = new KeyboardEvent('keydown', {
+                    key: 'Escape',
+                    keyCode: 27,
+                    which: 27,
+                    bubbles: true,
+                    cancelable: true
+                });
+                document.dispatchEvent(escEvent);
+            } catch (e) {
+                console.log('⚠️ ESC key error:', e);
+            }
+        }
+        
+        // Wait berdasarkan hasil popup closing
+        const submitDelay = popupClosed ? 1500 : 500;
+        
+        setTimeout(() => {
+            console.log('✅ Proceeding with form submission...');
+            callback();
+        }, submitDelay);
+    };
+    
+    // ✨ TAMBAHAN - Basic form submission handler (jika belum ada)
+    if (typeof window.handleFormSubmission !== 'function') {
+        window.handleFormSubmission = function(form, submitButton) {
+            console.log('📝 Using basic form submission handler...');
+            
+            try {
+                if (submitButton) {
+                    // Method 1: Click submit button
+                    submitButton.click();
+                    console.log('✅ Submit button clicked');
+                } else {
+                    // Method 2: Direct form submission
+                    form.submit();
+                    console.log('✅ Form submitted directly');
+                }
+            } catch (error) {
+                console.error('❌ Form submission error:', error);
+                
+                // Last resort: find any button and click
+                const anyButton = form.querySelector('button, input[type="submit"]');
+                if (anyButton) {
+                    try {
+                        anyButton.click();
+                        console.log('✅ Fallback button clicked');
+                    } catch (e) {
+                        console.error('❌ Fallback submission failed:', e);
+                    }
+                }
+            }
+        };
+    }
+    
+    // ✨ TAMBAHAN - Compatibility mode toggle
+    window.useOriginalSubmission = function() {
+        console.log('🔄 Switching to original submission method...');
+        window.autoSubmitForm = _originalAutoSubmit;
+    };
+    
+    console.log('✅ Enhanced Form Filling helper loaded (backward compatible)');
+    console.log('💡 Use window.useOriginalSubmission() to revert if needed');
     
 })();
