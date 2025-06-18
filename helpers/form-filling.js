@@ -1,11 +1,11 @@
-// Form Filling Helper - Enhanced but Compatible Version
+// Form Filling Helper - Enhanced with CAPTCHA Support
 (function() {
     'use strict';
     
     // Backup original functions for safety
     const _originalAutoSubmit = window.autoSubmitForm;
     
-    // Fill WordPress form (TIDAK DIUBAH - tetap sama)
+    // Fill WordPress form (ENHANCED with CAPTCHA)
     window.fillWordPressForm = function() {
         console.log('🔧 Filling WordPress form...');
 
@@ -63,8 +63,9 @@
 
             console.log('WordPress comment form filled!');
 
-            setTimeout(() => {
-                window.autoSubmitForm(commentForm);
+            // ✨ CAPTCHA CHECK BEFORE SUBMIT
+            setTimeout(async () => {
+                await window.handleCaptchaBeforeSubmit(commentForm);
             }, 2000);
 
         }, 1500);
@@ -72,7 +73,7 @@
         return true;
     };
     
-    // Try generic form filling (TIDAK DIUBAH - tetap sama)
+    // Try generic form filling (ENHANCED with CAPTCHA)
     window.tryGenericFormFilling = function() {
         console.log('🔍 Attempting generic form filling...');
 
@@ -103,7 +104,7 @@
         return false;
     };
     
-    // Fill generic form (TIDAK DIUBAH - tetap sama)
+    // Fill generic form (ENHANCED with CAPTCHA)
     window.fillGenericForm = function(form) {
         try {
             form.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -148,9 +149,12 @@
 
                 if (filled) {
                     console.log('✅ Generic form filled successfully!');
-                    setTimeout(() => {
-                        window.autoSubmitForm(form);
+                    
+                    // ✨ CAPTCHA CHECK BEFORE SUBMIT
+                    setTimeout(async () => {
+                        await window.handleCaptchaBeforeSubmit(form);
                     }, 2000);
+                    
                     return true;
                 }
 
@@ -163,8 +167,55 @@
             return false;
         }
     };
+
+    // ✨ NEW: Handle CAPTCHA before submit
+    window.handleCaptchaBeforeSubmit = async function(form) {
+        console.log('🔐 Checking for CAPTCHA before submit...');
+        
+        // Check if detectAndSolveCaptcha function is available (from solver.js)
+        if (typeof window.detectAndSolveCaptcha !== 'function') {
+            console.log('⚠️ CAPTCHA solver not available, proceeding without CAPTCHA check');
+            window.autoSubmitForm(form);
+            return;
+        }
+        
+        try {
+            const captchaResult = await window.detectAndSolveCaptcha();
+            
+            if (captchaResult.success) {
+                if (!captchaResult.noCaptcha) {
+                    console.log('🔐 CAPTCHA solved successfully, proceeding with submit...');
+                    // Extra delay after CAPTCHA solving
+                    setTimeout(() => {
+                        window.autoSubmitForm(form);
+                    }, 1500);
+                } else {
+                    console.log('✅ No CAPTCHA found, proceeding with submit...');
+                    window.autoSubmitForm(form);
+                }
+            } else {
+                console.log('❌ CAPTCHA solving failed:', captchaResult.error);
+                
+                // Show user notification
+                if (typeof window.showErrorMessage === 'function') {
+                    window.showErrorMessage(`CAPTCHA solving failed: ${captchaResult.error}. Manual intervention needed.`);
+                } else {
+                    alert('⚠️ CAPTCHA could not be solved automatically. Please solve manually and submit.');
+                }
+                
+                // Don't auto-submit, let user handle manually
+                console.log('🛑 Auto-submit cancelled due to CAPTCHA failure');
+            }
+        } catch (error) {
+            console.error('❌ Error during CAPTCHA handling:', error);
+            
+            // Fallback: proceed without CAPTCHA
+            console.log('🔄 Proceeding with submit despite CAPTCHA error...');
+            window.autoSubmitForm(form);
+        }
+    };
     
-    // Find submit button (TIDAK DIUBAH - tetap sama)
+    // Find submit button (TIDAK DIUBAH)
     window.findSubmitButton = function(form) {
         for (let selector of window.submitSelectors) {
             const button = form.querySelector(selector);
@@ -176,7 +227,7 @@
         return null;
     };
     
-    // ✨ HANYA INI YANG DIPERBAIKI - Enhanced popup handling
+    // Enhanced popup handling (TIDAK DIUBAH)
     window.autoSubmitForm = function(form) {
         if (!window.commentConfig.autoSubmit) {
             console.log('Auto submit disabled');
@@ -188,13 +239,10 @@
         if (!submitButton) {
             console.log('Submit button not found, trying form.submit()');
             setTimeout(() => {
-                // 🚪 Enhanced popup closing
                 window.handlePopupBeforeSubmit(() => {
-                    // Fallback jika handleFormSubmission tidak ada
                     if (typeof window.handleFormSubmission === 'function') {
                         window.handleFormSubmission(form, null);
                     } else {
-                        // Gunakan metode lama
                         try {
                             form.submit();
                             console.log('✅ Form submitted using fallback method');
@@ -214,15 +262,12 @@
         setTimeout(() => {
             console.log('🚀 Preparing to submit...');
             
-            // 🚪 Enhanced popup closing with callback
             window.handlePopupBeforeSubmit(() => {
                 console.log('🚀 Clicking submit button...');
                 
-                // Fallback jika handleFormSubmission tidak ada
                 if (typeof window.handleFormSubmission === 'function') {
                     window.handleFormSubmission(form, submitButton);
                 } else {
-                    // Gunakan metode lama yang aman
                     try {
                         submitButton.click();
                         console.log('✅ Submit button clicked using fallback method');
@@ -237,9 +282,8 @@
         return true;
     };
     
-    // ✨ TAMBAHAN - Enhanced popup handling (safe fallback)
+    // Enhanced popup handling (TIDAK DIUBAH)
     window.handlePopupBeforeSubmit = function(callback) {
-        // Jika tidak ada config popup handling, langsung callback
         if (!window.commentConfig || !window.commentConfig.handlePopups) {
             callback();
             return;
@@ -249,7 +293,6 @@
         
         let popupClosed = false;
         
-        // Method 1: Gunakan closePopup jika ada
         if (typeof window.closePopup === 'function') {
             try {
                 popupClosed = window.closePopup();
@@ -259,7 +302,6 @@
             }
         }
         
-        // Method 2: Fallback ESC key
         if (!popupClosed) {
             try {
                 console.log('🔄 Trying ESC key fallback...');
@@ -276,7 +318,6 @@
             }
         }
         
-        // Wait berdasarkan hasil popup closing
         const submitDelay = popupClosed ? 1500 : 500;
         
         setTimeout(() => {
@@ -285,25 +326,22 @@
         }, submitDelay);
     };
     
-    // ✨ TAMBAHAN - Basic form submission handler (jika belum ada)
+    // Basic form submission handler (TIDAK DIUBAH)
     if (typeof window.handleFormSubmission !== 'function') {
         window.handleFormSubmission = function(form, submitButton) {
             console.log('📝 Using basic form submission handler...');
             
             try {
                 if (submitButton) {
-                    // Method 1: Click submit button
                     submitButton.click();
                     console.log('✅ Submit button clicked');
                 } else {
-                    // Method 2: Direct form submission
                     form.submit();
                     console.log('✅ Form submitted directly');
                 }
             } catch (error) {
                 console.error('❌ Form submission error:', error);
                 
-                // Last resort: find any button and click
                 const anyButton = form.querySelector('button, input[type="submit"]');
                 if (anyButton) {
                     try {
@@ -317,13 +355,14 @@
         };
     }
     
-    // ✨ TAMBAHAN - Compatibility mode toggle
+    // Compatibility mode toggle (TIDAK DIUBAH)
     window.useOriginalSubmission = function() {
         console.log('🔄 Switching to original submission method...');
         window.autoSubmitForm = _originalAutoSubmit;
     };
     
-    console.log('✅ Enhanced Form Filling helper loaded (backward compatible)');
+    console.log('✅ Enhanced Form Filling helper loaded (with CAPTCHA support)');
+    console.log('🔐 CAPTCHA integration: detectAndSolveCaptcha, handleCaptchaBeforeSubmit');
     console.log('💡 Use window.useOriginalSubmission() to revert if needed');
     
 })();
