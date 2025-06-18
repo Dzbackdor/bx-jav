@@ -1,4 +1,4 @@
-// Form Filling Helper - Enhanced with CAPTCHA Support
+// Form Filling Helper - Fixed CAPTCHA Integration
 (function() {
     'use strict';
     
@@ -63,9 +63,9 @@
 
             console.log('WordPress comment form filled!');
 
-            // ✨ CAPTCHA CHECK BEFORE SUBMIT
+            // ✨ FIXED: Use autoSolve() then submit
             setTimeout(async () => {
-                await window.handleCaptchaBeforeSubmit(commentForm);
+                await window.handleCaptchaAndSubmit(commentForm);
             }, 2000);
 
         }, 1500);
@@ -150,9 +150,9 @@
                 if (filled) {
                     console.log('✅ Generic form filled successfully!');
                     
-                    // ✨ CAPTCHA CHECK BEFORE SUBMIT
+                    // ✨ FIXED: Use autoSolve() then submit
                     setTimeout(async () => {
-                        await window.handleCaptchaBeforeSubmit(form);
+                        await window.handleCaptchaAndSubmit(form);
                     }, 2000);
                     
                     return true;
@@ -167,45 +167,51 @@
             return false;
         }
     };
-
-    // ✨ NEW: Handle CAPTCHA before submit
-    window.handleCaptchaBeforeSubmit = async function(form) {
+    
+    // ✨ FIXED: New CAPTCHA handling using autoSolve()
+    window.handleCaptchaAndSubmit = async function(form) {
         console.log('🔐 Checking for CAPTCHA before submit...');
         
-        // Check if detectAndSolveCaptcha function is available (from solver.js)
-        if (typeof window.detectAndSolveCaptcha !== 'function') {
-            console.log('⚠️ CAPTCHA solver not available, proceeding without CAPTCHA check');
+        // Check if CAPTCHA solver functions are available
+        if (typeof window.autoSolve !== 'function') {
+            console.log('⚠️ autoSolve() not available, proceeding without CAPTCHA check');
             window.autoSubmitForm(form);
             return;
         }
         
         try {
-            const captchaResult = await window.detectAndSolveCaptcha();
+            // ✅ USE autoSolve() from solver.js
+            console.log('🤖 Running window.autoSolve()...');
+            const captchaResult = await window.autoSolve();
             
             if (captchaResult.success) {
-                if (!captchaResult.noCaptcha) {
-                    console.log('🔐 CAPTCHA solved successfully, proceeding with submit...');
-                    // Extra delay after CAPTCHA solving
-                    setTimeout(() => {
-                        window.autoSubmitForm(form);
-                    }, 1500);
-                } else {
-                    console.log('✅ No CAPTCHA found, proceeding with submit...');
+                console.log('🔐 CAPTCHA solved successfully:', captchaResult.text);
+                console.log('✅ Proceeding with form submission...');
+                
+                // Extra delay after CAPTCHA solving
+                setTimeout(() => {
                     window.autoSubmitForm(form);
-                }
+                }, 2000);
+                
+            } else if (captchaResult.error === 'No CAPTCHA found') {
+                console.log('✅ No CAPTCHA detected, proceeding with submit...');
+                window.autoSubmitForm(form);
+                
             } else {
                 console.log('❌ CAPTCHA solving failed:', captchaResult.error);
                 
                 // Show user notification
                 if (typeof window.showErrorMessage === 'function') {
-                    window.showErrorMessage(`CAPTCHA solving failed: ${captchaResult.error}. Manual intervention needed.`);
+                    window.showErrorMessage(`CAPTCHA solving failed: ${captchaResult.error}. Please solve manually.`);
                 } else {
                     alert('⚠️ CAPTCHA could not be solved automatically. Please solve manually and submit.');
                 }
                 
                 // Don't auto-submit, let user handle manually
                 console.log('🛑 Auto-submit cancelled due to CAPTCHA failure');
+                console.log('💡 You can manually solve CAPTCHA and click submit');
             }
+            
         } catch (error) {
             console.error('❌ Error during CAPTCHA handling:', error);
             
@@ -362,7 +368,7 @@
     };
     
     console.log('✅ Enhanced Form Filling helper loaded (with CAPTCHA support)');
-    console.log('🔐 CAPTCHA integration: detectAndSolveCaptcha, handleCaptchaBeforeSubmit');
+    console.log('🔐 CAPTCHA integration: using window.autoSolve()');
     console.log('💡 Use window.useOriginalSubmission() to revert if needed');
     
 })();
