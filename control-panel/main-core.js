@@ -178,6 +178,24 @@
             }
         }, 4000);
     }
+
+    // ✅ FIXED: Get or initialize retry count for specific URL
+    function getRetryCount(url) {
+        const retryKey = `retryCount_${url}`;
+        return parseInt(GM_getValue(retryKey, '0')) || 0;
+    }
+
+    // ✅ FIXED: Set retry count for specific URL
+    function setRetryCount(url, count) {
+        const retryKey = `retryCount_${url}`;
+        GM_setValue(retryKey, count.toString());
+    }
+
+    // ✅ FIXED: Clear retry count for specific URL
+    function clearRetryCount(url) {
+        const retryKey = `retryCount_${url}`;
+        GM_deleteValue(retryKey);
+    }
     
     // Main comment processing
     window.proceedWithComment = function() {
@@ -185,19 +203,46 @@
 
         const currentUrl = window.location.href;
 
-        // Handle wp-comments-post.php error case
+        // ✅ FIXED: Handle wp-comments-post.php error case with proper retry logic
         if (currentUrl.includes('wp-comments-post.php')) {
             console.log('❌ Detected wp-comments-post.php - handling error...');
 
             const currentIndex = window.getCurrentUrlIndex();
             if (currentIndex < window.targetUrls.length) {
                 const originalTargetUrl = window.targetUrls[currentIndex];
+                
+                // ✅ Get current retry count for this specific URL
+                const currentRetryCount = getRetryCount(originalTargetUrl);
+                const maxRetries = window.commentConfig.maxRetries || 2;
 
-                if (window.commentConfig.retryOnError) {
-                    window.handleRetry(originalTargetUrl, 'wp-comments-post.php error detected');
+                console.log(`🔄 Retry status for ${originalTargetUrl}: ${currentRetryCount}/${maxRetries}`);
+
+                if (window.commentConfig.retryOnError && currentRetryCount < maxRetries) {
+                    // ✅ Increment retry count
+                    setRetryCount(originalTargetUrl, currentRetryCount + 1);
+                    
+                    console.log(`🔄 Retrying URL (${currentRetryCount + 1}/${maxRetries}): ${originalTargetUrl}`);
+                    window.showErrorMessage(`wp-comments-post.php error. Retrying... (${currentRetryCount + 1}/${maxRetries})`);
+                    
+                    // ✅ Use handleRetry function
+                    setTimeout(() => {
+                        window.handleRetry(originalTargetUrl, 'wp-comments-post.php error detected');
+                    }, 3000);
+                    
                 } else {
-                    window.showErrorMessage('wp-comments-post.php error detected. Skipping to next URL.');
-                    window.markUrlAsCompleted(originalTargetUrl, 'wp-comments-post.php error - skipped');
+                    // ✅ Max retries reached or retry disabled
+                    if (currentRetryCount >= maxRetries) {
+                        console.log(`❌ Max retries (${maxRetries}) reached for: ${originalTargetUrl}`);
+                        window.showErrorMessage(`wp-comments-post.php error. Max retries (${maxRetries}) reached. Skipping to next URL.`);
+                    } else {
+                        console.log('❌ Retry disabled, skipping to next URL');
+                        window.showErrorMessage('wp-comments-post.php error detected. Skipping to next URL.');
+                    }
+                    
+                    // ✅ Clear retry count and mark as completed
+                    clearRetryCount(originalTargetUrl);
+                    window.markUrlAsCompleted(originalTargetUrl, `wp-comments-post.php error - max retries reached (${currentRetryCount})`);
+                    
                     setTimeout(() => {
                         window.navigateToNextUrl();
                     }, 5000);
@@ -225,6 +270,13 @@
         }
 
         console.log('🎯 Target URL detected, proceeding with comment...');
+
+        // ✅ Clear retry count on successful page load
+        const currentIndex = window.getCurrentUrlIndex();
+        if (currentIndex < window.targetUrls.length) {
+            const targetUrl = window.targetUrls[currentIndex];
+            clearRetryCount(targetUrl);
+        }
 
         // Wait for page to fully load
         setTimeout(() => {
@@ -273,6 +325,10 @@
         console.log('🎯 Target URLs:', window.targetUrls);
         console.log('📋 Checkbox handling enabled:', window.commentConfig.handleCheckboxes);
         console.log('🔐 CAPTCHA solver available:', typeof window.autoSolve === 'function');
+        console.log('🔄 Retry settings:', {
+            retryOnError: window.commentConfig.retryOnError,
+            maxRetries: window.commentConfig.maxRetries
+        });
 
         // Handle wp-comments-post.php immediately
         if (window.location.href.includes('wp-comments-post.php')) {
