@@ -1,4 +1,4 @@
-// Form Filling Helper - Fixed CAPTCHA Integration
+// Form Filling Helper - Enhanced with CAPTCHA Support
 (function() {
     'use strict';
     
@@ -63,9 +63,9 @@
 
             console.log('WordPress comment form filled!');
 
-            // ✨ FIXED: Use autoSolve() then submit
+            // ✨ CAPTCHA CHECK BEFORE SUBMIT
             setTimeout(async () => {
-                await window.handleCaptchaAndSubmit(commentForm);
+                await window.handleCaptchaBeforeSubmit(commentForm);
             }, 2000);
 
         }, 1500);
@@ -150,9 +150,9 @@
                 if (filled) {
                     console.log('✅ Generic form filled successfully!');
                     
-                    // ✨ FIXED: Use autoSolve() then submit
+                    // ✨ CAPTCHA CHECK BEFORE SUBMIT
                     setTimeout(async () => {
-                        await window.handleCaptchaAndSubmit(form);
+                        await window.handleCaptchaBeforeSubmit(form);
                     }, 2000);
                     
                     return true;
@@ -167,57 +167,134 @@
             return false;
         }
     };
-    
-    // ✨ FIXED: New CAPTCHA handling using autoSolve()
-    window.handleCaptchaAndSubmit = async function(form) {
+
+    // ✨ NEW: Handle CAPTCHA before submit - ENHANCED VERSION
+    window.handleCaptchaBeforeSubmit = async function(form) {
         console.log('🔐 Checking for CAPTCHA before submit...');
         
-        // Check if CAPTCHA solver functions are available
-        if (typeof window.autoSolve !== 'function') {
-            console.log('⚠️ autoSolve() not available, proceeding without CAPTCHA check');
+        // 🔧 Check if CAPTCHA handling is enabled in config
+        if (window.commentConfig && window.commentConfig.handleCaptcha === false) {
+            console.log('🔐 CAPTCHA handling disabled in config, proceeding with submit');
+            window.autoSubmitForm(form);
+            return;
+        }
+        
+        // Check if detectAndSolveCaptcha function is available (from solver.js)
+        if (typeof window.detectAndSolveCaptcha !== 'function') {
+            console.log('⚠️ CAPTCHA solver not available, proceeding without CAPTCHA check');
             window.autoSubmitForm(form);
             return;
         }
         
         try {
-            // ✅ USE autoSolve() from solver.js
-            console.log('🤖 Running window.autoSolve()...');
-            const captchaResult = await window.autoSolve();
+            console.log('🔍 Running CAPTCHA detection...');
+            const captchaResult = await window.detectAndSolveCaptcha();
             
             if (captchaResult.success) {
-                console.log('🔐 CAPTCHA solved successfully:', captchaResult.text);
-                console.log('✅ Proceeding with form submission...');
-                
-                // Extra delay after CAPTCHA solving
-                setTimeout(() => {
+                if (!captchaResult.noCaptcha) {
+                    console.log('🔐 CAPTCHA solved successfully:', captchaResult.text);
+                    
+                    // 🎯 Visual feedback for successful CAPTCHA solve
+                    const captchaInput = document.querySelector('#securitycode, input[name*="captcha"], input[id*="captcha"]');
+                    if (captchaInput) {
+                        captchaInput.style.border = '2px solid #4CAF50';
+                        captchaInput.style.backgroundColor = '#e8f5e8';
+                    }
+                    
+                    // Extra delay after CAPTCHA solving for processing
+                    console.log('⏳ Waiting for CAPTCHA to be processed...');
+                    setTimeout(() => {
+                        window.autoSubmitForm(form);
+                    }, 2000); // Increased delay for better reliability
+                } else {
+                    console.log('✅ No CAPTCHA found, proceeding with submit...');
                     window.autoSubmitForm(form);
-                }, 2000);
-                
-            } else if (captchaResult.error === 'No CAPTCHA found') {
-                console.log('✅ No CAPTCHA detected, proceeding with submit...');
-                window.autoSubmitForm(form);
-                
+                }
             } else {
                 console.log('❌ CAPTCHA solving failed:', captchaResult.error);
                 
-                // Show user notification
+                // 🔧 Enhanced error handling based on config
+                const config = window.commentConfig || {};
+                
+                if (config.retryCaptchaOnFail) {
+                    console.log('🔄 Retrying CAPTCHA as per config...');
+                    
+                    // Retry with exponential backoff
+                    setTimeout(async () => {
+                        await window.handleCaptchaBeforeSubmit(form);
+                    }, 3000);
+                    return;
+                }
+                
+                if (config.skipOnCaptchaFail) {
+                    console.log('⏭️ Skipping URL due to CAPTCHA failure as per config');
+                    
+                    if (typeof window.showErrorMessage === 'function') {
+                        window.showErrorMessage(`CAPTCHA solving failed: ${captchaResult.error}. Skipping to next URL.`);
+                    }
+                    
+                    // Mark current URL as failed and move to next
+                    if (typeof window.markUrlAsCompleted === 'function') {
+                        window.markUrlAsCompleted(window.location.href, `CAPTCHA Failed: ${captchaResult.error}`);
+                    }
+                    
+                    setTimeout(() => {
+                        if (typeof window.navigateToNextUrl === 'function') {
+                            window.navigateToNextUrl();
+                        }
+                    }, 3000);
+                    return;
+                }
+                
+                // Default: Show error and wait for manual intervention
+                console.log('🛑 Manual intervention required for CAPTCHA');
+                
                 if (typeof window.showErrorMessage === 'function') {
-                    window.showErrorMessage(`CAPTCHA solving failed: ${captchaResult.error}. Please solve manually.`);
+                    window.showErrorMessage(`CAPTCHA solving failed: ${captchaResult.error}. Please solve manually and submit.`);
                 } else {
                     alert('⚠️ CAPTCHA could not be solved automatically. Please solve manually and submit.');
                 }
                 
-                // Don't auto-submit, let user handle manually
+                // 🎯 Highlight CAPTCHA elements for user attention
+                const captchaImg = document.querySelector('#secureimg, .captcha-image, [id*="captcha"], [class*="captcha"]');
+                const captchaInput = document.querySelector('#securitycode, input[name*="captcha"], input[id*="captcha"]');
+                
+                if (captchaImg) {
+                    captchaImg.style.border = '3px solid #ff9800';
+                    captchaImg.style.borderRadius = '5px';
+                }
+                
+                if (captchaInput) {
+                    captchaInput.style.border = '2px solid #ff9800';
+                    captchaInput.style.backgroundColor = '#fff3e0';
+                    captchaInput.focus();
+                }
+                
                 console.log('🛑 Auto-submit cancelled due to CAPTCHA failure');
-                console.log('💡 You can manually solve CAPTCHA and click submit');
             }
-            
         } catch (error) {
             console.error('❌ Error during CAPTCHA handling:', error);
             
-            // Fallback: proceed without CAPTCHA
-            console.log('🔄 Proceeding with submit despite CAPTCHA error...');
-            window.autoSubmitForm(form);
+            // 🔧 Fallback behavior based on config
+            const config = window.commentConfig || {};
+            
+            if (config.skipOnCaptchaFail) {
+                console.log('⏭️ Skipping due to CAPTCHA error as per config');
+                
+                if (typeof window.showErrorMessage === 'function') {
+                    window.showErrorMessage(`CAPTCHA error: ${error.message}. Skipping to next URL.`);
+                }
+                
+                setTimeout(() => {
+                    if (typeof window.navigateToNextUrl === 'function') {
+                        window.navigateToNextUrl();
+                    }
+                }, 3000);
+            } else {
+                // Proceed with submit despite error
+                console.log('🔄 Proceeding with submit despite CAPTCHA error...');
+                window.autoSubmitForm(form);
+            }
         }
     };
     
@@ -368,7 +445,7 @@
     };
     
     console.log('✅ Enhanced Form Filling helper loaded (with CAPTCHA support)');
-    console.log('🔐 CAPTCHA integration: using window.autoSolve()');
+    console.log('🔐 CAPTCHA integration: detectAndSolveCaptcha, handleCaptchaBeforeSubmit');
     console.log('💡 Use window.useOriginalSubmission() to revert if needed');
     
 })();
