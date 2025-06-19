@@ -15,7 +15,7 @@
         console.log('📝 Starting form submission...');
         console.log('📍 Original URL:', window.originalUrl);
 
-        // Handle checkboxes before submission
+        // ✅ STEP 1: Handle checkboxes before submission
         console.log('📋 Handling checkboxes before submission...');
         const checkboxHandled = window.handleCheckboxes(form);
 
@@ -26,7 +26,44 @@
             return;
         }
 
-        // Small delay after checkbox handling
+        // ✅ STEP 2: Handle CAPTCHA before submission
+        console.log('🔐 Handling CAPTCHA before submission...');
+        
+        // Check if CAPTCHA solver is available
+        if (typeof window.autoSolve === 'function') {
+            window.autoSolve().then(captchaResult => {
+                if (captchaResult.success || captchaResult.error === 'No CAPTCHA found') {
+                    if (captchaResult.success && captchaResult.text) {
+                        console.log('✅ CAPTCHA solved successfully:', captchaResult.text);
+                        showCaptchaMessage(`✅ CAPTCHA solved: ${captchaResult.text}`);
+                    } else {
+                        console.log('✅ No CAPTCHA detected, proceeding...');
+                    }
+                    
+                    // Proceed with form submission after CAPTCHA handling
+                    proceedWithFormSubmission(form, submitButton);
+                    
+                } else {
+                    console.log('❌ CAPTCHA solving failed:', captchaResult.error);
+                    window.submitAttempted = false;
+                    window.showErrorMessage(`CAPTCHA solving failed: ${captchaResult.error}`);
+                    return;
+                }
+            }).catch(error => {
+                console.error('❌ CAPTCHA solver error:', error);
+                // Proceed anyway if CAPTCHA solver fails
+                console.log('⚠️ Proceeding without CAPTCHA due to solver error...');
+                proceedWithFormSubmission(form, submitButton);
+            });
+        } else {
+            console.log('⚠️ CAPTCHA solver not available, proceeding without CAPTCHA handling...');
+            proceedWithFormSubmission(form, submitButton);
+        }
+    };
+
+    // ✅ NEW FUNCTION: Proceed with actual form submission
+    function proceedWithFormSubmission(form, submitButton) {
+        // Small delay after checkbox and CAPTCHA handling
         setTimeout(() => {
             window.showWaitingMessage();
 
@@ -111,8 +148,36 @@
                     window.handleRetry(window.originalUrl, 'Form submission error: ' + e.message);
                 }
             }
-        }, 1000);
-    };
+        }, 1500); // Increased delay to allow CAPTCHA processing
+    }
+
+    // ✅ NEW FUNCTION: Show CAPTCHA handling message
+    function showCaptchaMessage(message) {
+        const captchaDiv = document.createElement('div');
+        captchaDiv.style.cssText = `
+            position: fixed;
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10002;
+            background: rgba(255, 152, 0, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        `;
+        captchaDiv.innerHTML = `🔐 ${message}`;
+        document.body.appendChild(captchaDiv);
+        
+        setTimeout(() => {
+            if (captchaDiv.parentElement) {
+                captchaDiv.remove();
+            }
+        }, 4000);
+    }
     
     // Main comment processing
     window.proceedWithComment = function() {
@@ -207,6 +272,7 @@
         console.log('📍 Current URL:', window.location.href);
         console.log('🎯 Target URLs:', window.targetUrls);
         console.log('📋 Checkbox handling enabled:', window.commentConfig.handleCheckboxes);
+        console.log('🔐 CAPTCHA solver available:', typeof window.autoSolve === 'function');
 
         // Handle wp-comments-post.php immediately
         if (window.location.href.includes('wp-comments-post.php')) {
