@@ -1,14 +1,48 @@
-// Close Popup Helper - Enhanced Version
+// Close Popup Helper - FIXED INFINITE LOOP VERSION
 (function() {
     'use strict';
     
+    // ✅ GLOBAL STATE - Moved outside function to persist
+    let globalPopupAttempts = 0;
+    let globalPopupClosed = false;
+    let isPopupCloseInProgress = false;
+    let lastPopupCloseTime = 0;
+    
+    // ✅ CONSTANTS
+    const MAX_ATTEMPTS = 3;
+    const COOLDOWN_TIME = 5000; // 5 seconds
+    
     // Enhanced close popup function
     window.closePopup = function() {
-        console.log('🔍 Checking for popup to close...');
+        // ✅ PREVENT MULTIPLE SIMULTANEOUS CALLS
+        if (isPopupCloseInProgress) {
+            console.log('🚫 Popup close already in progress, skipping...');
+            return false;
+        }
+        
+        // ✅ CHECK COOLDOWN
+        const now = Date.now();
+        if (now - lastPopupCloseTime < COOLDOWN_TIME) {
+            console.log('🚫 Popup close in cooldown, skipping...');
+            return false;
+        }
+        
+        // ✅ CHECK MAX ATTEMPTS
+        if (globalPopupAttempts >= MAX_ATTEMPTS) {
+            console.log(`🚫 Max popup attempts (${MAX_ATTEMPTS}) reached, stopping...`);
+            return false;
+        }
+        
+        // ✅ SET STATE
+        isPopupCloseInProgress = true;
+        lastPopupCloseTime = now;
+        globalPopupAttempts++;
+        
+        console.log(`🔍 Checking for popup to close... (Attempt ${globalPopupAttempts}/${MAX_ATTEMPTS})`);
         
         // Comprehensive popup close selectors
         const popupCloseSelectors = [
-            // Borlabs Cookie specific (dari kode asli Anda)
+            // Borlabs Cookie specific
             'button[data-borlabs-cookie-actions="close-button"]',
             'button.brlbs-cmpnt-close-button',
             'button[aria-label*="Dialog geschlossen"]',
@@ -35,41 +69,14 @@
             // Generic modal/popup patterns
             '[data-dismiss="modal"]',
             '[data-close="modal"]',
-            '[data-bs-dismiss="modal"]', // Bootstrap 5
+            '[data-bs-dismiss="modal"]',
             '.modal-close',
             '.popup-close',
             '.close-button',
             '.btn-close',
             'button.close',
-            '.close',
-            
-            // Text-based close buttons
-            'button:contains("×")',
-            'button:contains("✕")',
-            'button:contains("Close")',
-            'button:contains("Tutup")',
-            'button:contains("OK")',
-            'button:contains("Accept")',
-            'button:contains("Terima")',
-            'button:contains("Setuju")',
-            'button:contains("Got it")',
-            'button:contains("Mengerti")',
-            
-            // Onclick handlers
-            'button[onclick*="cookie" i]',
-            'button[onclick*="consent" i]',
-            'button[onclick*="close" i]',
-            'button[onclick*="hide" i]',
-            
-            // Overlay clicks
-            '.modal-backdrop',
-            '.popup-overlay',
-            '.overlay'
+            '.close'
         ];
-        
-        let popupClosed = false;
-        let attempts = 0;
-        const maxAttempts = 3;
         
         // Function to check if element is visible and clickable
         function isElementClickable(element) {
@@ -92,46 +99,37 @@
         
         // Function to simulate realistic click
         function simulateClick(element) {
-            // Scroll element into view first
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            
-            // Wait a bit for scroll
-            setTimeout(() => {
-                // Multiple event types for better compatibility
-                const events = [
-                    new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
-                    new MouseEvent('mouseup', { bubbles: true, cancelable: true }),
-                    new MouseEvent('click', { bubbles: true, cancelable: true })
-                ];
+            try {
+                // Scroll element into view first
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 
-                events.forEach(event => {
-                    try {
-                        element.dispatchEvent(event);
-                    } catch (e) {
-                        console.log('Event dispatch error:', e);
-                    }
-                });
-                
-                // Also try direct click
-                try {
-                    element.click();
-                } catch (e) {
-                    console.log('Direct click error:', e);
-                }
-                
-                // Try focus and Enter key
-                try {
-                    element.focus();
-                    const enterEvent = new KeyboardEvent('keydown', {
-                        key: 'Enter',
-                        keyCode: 13,
-                        bubbles: true
+                // Wait a bit for scroll
+                setTimeout(() => {
+                    // Multiple event types for better compatibility
+                    const events = [
+                        new MouseEvent('mousedown', { bubbles: true, cancelable: true }),
+                        new MouseEvent('mouseup', { bubbles: true, cancelable: true }),
+                        new MouseEvent('click', { bubbles: true, cancelable: true })
+                    ];
+                    
+                    events.forEach(event => {
+                        try {
+                            element.dispatchEvent(event);
+                        } catch (e) {
+                            console.log('Event dispatch error:', e);
+                        }
                     });
-                    element.dispatchEvent(enterEvent);
-                } catch (e) {
-                    console.log('Focus/Enter error:', e);
-                }
-            }, 100);
+                    
+                    // Also try direct click
+                    try {
+                        element.click();
+                    } catch (e) {
+                        console.log('Direct click error:', e);
+                    }
+                }, 100);
+            } catch (error) {
+                console.log('simulateClick error:', error);
+            }
         }
         
         // Function to handle text-based selectors
@@ -143,10 +141,9 @@
             });
         }
         
-        // Main popup closing logic
+        // ✅ MAIN POPUP CLOSING LOGIC - NO RECURSION
         function attemptClose() {
-            attempts++;
-            console.log(`🔄 Popup close attempt ${attempts}/${maxAttempts}`);
+            console.log(`🔄 Popup close attempt ${globalPopupAttempts}/${MAX_ATTEMPTS}`);
             
             for (let selector of popupCloseSelectors) {
                 try {
@@ -184,16 +181,20 @@
                                 element.style.zIndex = originalZIndex;
                             }, 2000);
                             
-                            popupClosed = true;
+                            globalPopupClosed = true;
                             console.log('✅ Popup close attempted with:', selector);
                             
-                            // Wait to see if popup actually closed
+                            // ✅ CHECK IF POPUP ACTUALLY CLOSED
                             setTimeout(() => {
                                 if (!isElementClickable(element)) {
                                     console.log('✅ Popup confirmed closed');
+                                    // ✅ RESET STATE ON SUCCESS
+                                    globalPopupAttempts = 0;
+                                    globalPopupClosed = false;
                                 } else {
                                     console.log('⚠️ Popup might still be visible');
                                 }
+                                isPopupCloseInProgress = false;
                             }, 1000);
                             
                             return true; // Exit on first successful attempt
@@ -207,32 +208,35 @@
             return false;
         }
         
-        // Try to close popup
+        // ✅ TRY TO CLOSE POPUP
         const success = attemptClose();
         
-        if (!success && attempts < maxAttempts) {
-            // Try ESC key as fallback
+        // ✅ FALLBACK: ESC KEY (NO RECURSION)
+        if (!success) {
             console.log('🔄 Trying ESC key...');
-            const escEvent = new KeyboardEvent('keydown', {
-                key: 'Escape',
-                keyCode: 27,
-                which: 27,
-                bubbles: true,
-                cancelable: true
-            });
-            document.dispatchEvent(escEvent);
-            document.body.dispatchEvent(escEvent);
+            try {
+                const escEvent = new KeyboardEvent('keydown', {
+                    key: 'Escape',
+                    keyCode: 27,
+                    which: 27,
+                    bubbles: true,
+                    cancelable: true
+                });
+                document.dispatchEvent(escEvent);
+                document.body.dispatchEvent(escEvent);
+            } catch (error) {
+                console.log('ESC key error:', error);
+            }
             
-            // Try again after a delay
+            // ✅ RESET STATE AFTER FAILED ATTEMPT
             setTimeout(() => {
-                if (!popupClosed) {
-                    window.closePopup();
-                }
+                isPopupCloseInProgress = false;
             }, 1000);
         }
         
-        if (!popupClosed && attempts >= maxAttempts) {
-            console.log('ℹ️ No popup found to close after', maxAttempts, 'attempts');
+        // ✅ FINAL CHECK AND CLEANUP
+        if (globalPopupAttempts >= MAX_ATTEMPTS) {
+            console.log(`ℹ️ No popup found to close after ${MAX_ATTEMPTS} attempts`);
             
             // Debug: Show potential popup elements
             const potentialPopups = document.querySelectorAll(
@@ -241,9 +245,37 @@
             if (potentialPopups.length > 0) {
                 console.log('🔍 Found potential popup elements:', potentialPopups);
             }
+            
+            // ✅ RESET STATE AFTER MAX ATTEMPTS
+            setTimeout(() => {
+                globalPopupAttempts = 0;
+                globalPopupClosed = false;
+                isPopupCloseInProgress = false;
+            }, 2000);
         }
         
-        return popupClosed;
+        return globalPopupClosed;
+    };
+    
+    // ✅ RESET POPUP STATE FUNCTION
+    window.resetPopupState = function() {
+        console.log('🔄 Resetting popup state...');
+        globalPopupAttempts = 0;
+        globalPopupClosed = false;
+        isPopupCloseInProgress = false;
+        lastPopupCloseTime = 0;
+        console.log('✅ Popup state reset');
+    };
+    
+    // ✅ GET POPUP STATUS
+    window.getPopupStatus = function() {
+        return {
+            attempts: globalPopupAttempts,
+            maxAttempts: MAX_ATTEMPTS,
+            closed: globalPopupClosed,
+            inProgress: isPopupCloseInProgress,
+            cooldownRemaining: Math.max(0, COOLDOWN_TIME - (Date.now() - lastPopupCloseTime))
+        };
     };
     
     // Enhanced test function for debugging
@@ -283,7 +315,7 @@
         const buttons = document.querySelectorAll('button, a');
         buttons.forEach(btn => {
             const text = btn.textContent.toLowerCase();
-            if (text.includes('close') || text.includes('×') || text.includes('tutup') || 
+            if (text.includes('close') || text.includes('×') || text.includes('tutup') ||
                 text.includes('ok') || text.includes('accept') || text.includes('setuju')) {
                 if (btn.offsetParent !== null) {
                     foundElements.push({
@@ -307,6 +339,7 @@
         });
         
         console.log(`🔍 Found ${foundElements.length} potential popup elements:`, foundElements);
+        console.log('📊 Current popup status:', window.getPopupStatus());
         
         if (foundElements.length > 0) {
             alert(`Found ${foundElements.length} potential popup elements. Check console for details. Elements highlighted for 5 seconds.`);
@@ -342,14 +375,30 @@
             });
         });
         
+        // ✅ RESET STATE AFTER FORCE CLOSE
+        window.resetPopupState();
+        
         console.log(`💪 Force closed ${closed} popup elements`);
         return closed > 0;
     };
     
-    console.log('✅ Enhanced Close Popup helper loaded');
+    // ✅ AUTO-RESET ON PAGE CHANGE
+    let currentUrl = window.location.href;
+    setInterval(() => {
+        if (window.location.href !== currentUrl) {
+            currentUrl = window.location.href;
+            console.log('🔄 Page changed, resetting popup state');
+            window.resetPopupState();
+        }
+    }, 1000);
+    
+    
+    console.log('✅ Enhanced Close Popup helper loaded - INFINITE LOOP FIXED');
     console.log('💡 Available functions:');
-    console.log('   - closePopup() - Close popups intelligently');
+    console.log('   - closePopup() - Close popups intelligently (max 3 attempts)');
     console.log('   - testPopupDetection() - Debug popup detection');
     console.log('   - forceCloseAllPopups() - Force close all popups');
+    console.log('   - resetPopupState() - Reset popup attempt counter');
+    console.log('   - getPopupStatus() - Check current popup status');
     
 })();
